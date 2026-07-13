@@ -1,0 +1,48 @@
+export interface SubTask {
+  id: string;
+  title: string;
+  completed: boolean;
+  startDate?: string; // YYYY-MM-DD
+  endDate?: string;   // YYYY-MM-DD
+  assignee?: string;
+}
+
+export interface TaskComment {
+  id: string;
+  author: string;
+  avatarColor: string;
+  content: string;
+  timestamp: string;
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string;
+  startDate: string; // YYYY-MM-DD
+  endDate: string;   // YYYY-MM-DD
+  progress: number;  // 0 to 100
+  status: 'todo' | 'in_progress' | 'in_review' | 'done';
+  assignee: string;
+  dependencyTaskId?: string;
+  isMilestone: boolean;
+  color?: string; // Hex or theme color name
+  subtasks: SubTask[];
+  comments: TaskComment[];
+}
+
+export interface MarketingTemplate {
+  id: string;
+  titleUa: string;
+  titleEn: string;
+  categoryUa: string;
+  categoryEn: string;
+  descriptionUa: string;
+  descriptionEn: string;
+  iconName: string;
+  tasks: Task[];
+}
+
+export type ZoomLevel = 'days' | 'weeks' | 'months';
+export type ActiveTab = 'gantt' | 'grid' | 'kanban' | 'workload';
+export type Language = 'uk' | 'en';

@@ -1,0 +1,11 @@
+{
+  "project_id": "xyvpresvfubmmfweyasf",
+  "project_ref": "xyvpresvfubmmfweyasf",
+  "name": "vikabaranecz-ui's Project",
+  "region": "eu-west-1",
+  "status": "ACTIVE_HEALTHY",
+  "api_url": "https://xyvpresvfubmmfweyasf.supabase.co",
+  "database_host": "db.xyvpresvfubmmfweyasf.supabase.co",
+  "postgres_engine": "17",
+  "database_version": "17.6.1.141"
+}
