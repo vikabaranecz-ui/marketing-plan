@@ -784,7 +784,7 @@ function App() {
                   title={lang === 'uk' ? 'Показати/Сховати список завдань' : 'Toggle Gantt Tasks List'}
                 >
                   {showGanttSidebar ? <EyeOff size={14} /> : <Eye size={14} />}
-                  <span>{lang === 'uk' ? 'Список' : 'List'}</span>
+                  <span>{lang === 'uk' ? 'Завдання' : 'Tasks'}</span>
                 </button>
 
                 <span className="control-label">{getTranslation(lang, 'zoomLabel')}</span>
@@ -939,32 +939,34 @@ function App() {
           </div>
         </header>
 
-        <section className="project-summary">
-          <div className="project-title-block">
-            <p className="eyebrow">{lang === 'uk' ? 'Поточний план' : 'Current plan'}</p>
-            <h1>{activeTemplateTitle}</h1>
-            <p>{activeTemplateDescription}</p>
-          </div>
+        {activeTab !== 'gantt' && (
+          <section className="project-summary">
+            <div className="project-title-block">
+              <p className="eyebrow">{lang === 'uk' ? 'Поточний план' : 'Current plan'}</p>
+              <h1>{activeTemplateTitle}</h1>
+              <p>{activeTemplateDescription}</p>
+            </div>
 
-          <div className="summary-stats">
-            <div className="summary-stat">
-              <span>{lang === 'uk' ? 'Завдань' : 'Tasks'}</span>
-              <strong>{tasks.length}</strong>
+            <div className="summary-stats">
+              <div className="summary-stat">
+                <span>{lang === 'uk' ? 'Завдань' : 'Tasks'}</span>
+                <strong>{tasks.length}</strong>
+              </div>
+              <div className="summary-stat">
+                <span>{lang === 'uk' ? 'Виконано' : 'Done'}</span>
+                <strong>{completedTasks}</strong>
+              </div>
+              <div className="summary-stat">
+                <span>{lang === 'uk' ? 'Прогрес' : 'Progress'}</span>
+                <strong>{averageProgress}%</strong>
+              </div>
+              <div className="summary-stat">
+                <span>{lang === 'uk' ? 'Показано' : 'Shown'}</span>
+                <strong>{filteredTasks.length}</strong>
+              </div>
             </div>
-            <div className="summary-stat">
-              <span>{lang === 'uk' ? 'Виконано' : 'Done'}</span>
-              <strong>{completedTasks}</strong>
-            </div>
-            <div className="summary-stat">
-              <span>{lang === 'uk' ? 'Прогрес' : 'Progress'}</span>
-              <strong>{averageProgress}%</strong>
-            </div>
-            <div className="summary-stat">
-              <span>{lang === 'uk' ? 'Показано' : 'Shown'}</span>
-              <strong>{filteredTasks.length}</strong>
-            </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {activeFiltersCount > 0 && (
           <div className="filter-note">

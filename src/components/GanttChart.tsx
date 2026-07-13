@@ -64,6 +64,7 @@ interface RowItem {
   startDate: string;
   endDate: string;
   progress: number;
+  status: Task['status'];
   isMilestone: boolean;
   color?: string;
   isSubtask: boolean;
@@ -133,6 +134,7 @@ export default function GanttChart({
         startDate: t.startDate,
         endDate: t.endDate,
         progress: t.progress,
+        status: t.status,
         isMilestone: t.isMilestone,
         color: t.color,
         isSubtask: false,
@@ -148,6 +150,7 @@ export default function GanttChart({
             startDate: sub.startDate || t.startDate,
             endDate: sub.endDate || t.endDate,
             progress: sub.completed ? 100 : 0,
+            status: sub.completed ? 'done' : t.status,
             isMilestone: false,
             isGroup: false,
             isSubtask: true,
@@ -657,12 +660,23 @@ export default function GanttChart({
     return weekendPanels;
   };
 
+  const getDurationLabel = (startDate: string, endDate: string) => {
+    const duration = getDaysBetween(parseLocalDate(startDate), parseLocalDate(endDate)) + 1;
+    return lang === 'uk' ? `${duration} дн.` : `${duration}d`;
+  };
+
   return (
     <div className={`gantt-container ${showSidebar ? '' : 'sidebar-collapsed'}`}>
-      {/* 1. Left Sidebar of Task Names */}
-      <div className={`gantt-sidebar ${showSidebar ? '' : 'collapsed'}`}>
-        <div className="gantt-sidebar-header">
-          {getTranslation(lang, 'taskTitle')}
+      {/* 1. Left GanttPRO-style task grid */}
+      <div className={`gantt-sidebar gantt-grid-sidebar ${showSidebar ? '' : 'collapsed'}`}>
+        <div className="gantt-grid-header">
+          <div className="gantt-grid-cell gantt-grid-title-cell">
+            {getTranslation(lang, 'taskTitle')}
+          </div>
+          <div className="gantt-grid-cell">{lang === 'uk' ? 'Початок' : 'Start'}</div>
+          <div className="gantt-grid-cell">{lang === 'uk' ? 'Кінець' : 'End'}</div>
+          <div className="gantt-grid-cell">{lang === 'uk' ? 'Трив.' : 'Dur.'}</div>
+          <div className="gantt-grid-cell">{lang === 'uk' ? 'Прогрес' : 'Progress'}</div>
         </div>
         <div 
           className="gantt-sidebar-rows" 
@@ -673,73 +687,56 @@ export default function GanttChart({
             return (
               <div
                 key={`side-${item.id}`}
-                className={`gantt-sidebar-row ${item.isSubtask ? 'gantt-sidebar-row-subtask' : ''} ${isSelected ? 'active' : ''}`}
+                className={`gantt-sidebar-row gantt-grid-row ${item.isSubtask ? 'gantt-sidebar-row-subtask' : ''} ${isSelected ? 'active' : ''}`}
                 onClick={() => setSelectedTaskId(item.isSubtask ? item.parentId! : item.id)}
-                style={{ 
-                  paddingLeft: item.isSubtask ? '36px' : '12px',
-                  fontSize: item.isSubtask ? '0.78rem' : '0.8rem',
-                  opacity: item.isSubtask ? 0.85 : 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  borderBottom: '1px solid var(--border-color)',
-                  height: '48px',
-                  cursor: 'pointer'
-                }}
                 title={item.title}
               >
-                {/* Collapse / Expand Toggle for Groups */}
-                {item.isGroup && (
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleTaskCollapse(item.id);
-                    }}
-                    style={{ 
-                      background: 'transparent', 
-                      border: 'none', 
-                      cursor: 'pointer', 
-                      padding: '4px',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      marginRight: '2px',
-                      color: 'var(--text-secondary)'
-                    }}
+                <div className="gantt-grid-cell gantt-grid-title-cell">
+                  <div
+                    className="gantt-task-title-wrap"
+                    style={{ paddingLeft: item.isSubtask ? '24px' : '0' }}
                   >
-                    {collapsedTasks.has(item.id) ? '▶' : '▼'}
-                  </button>
-                )}
+                    {item.isGroup ? (
+                      <button
+                        className="gantt-collapse-button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleTaskCollapse(item.id);
+                        }}
+                        aria-label={collapsedTasks.has(item.id) ? 'Expand task' : 'Collapse task'}
+                      >
+                        {collapsedTasks.has(item.id) ? '▶' : '▼'}
+                      </button>
+                    ) : (
+                      <span className="gantt-row-indent-spacer" />
+                    )}
 
-                <span style={{ 
-                  marginRight: '8px', 
-                  color: item.color || 'var(--primary)',
-                  fontWeight: 'bold',
-                  flexShrink: 0
-                }}>
-                  {item.isSubtask ? '↳' : item.isMilestone ? '◆' : '■'}
-                </span>
-                <span style={{ 
-                  textDecoration: item.isSubtask && item.progress === 100 ? 'line-through' : 'none',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  flex: 1
-                }}>
-                  {item.title}
-                </span>
-                {item.assignee && (
-                  <span style={{ 
-                    marginLeft: '8px', 
-                    fontSize: '0.68rem', 
-                    color: 'var(--text-muted)', 
-                    background: 'rgba(0,0,0,0.03)', 
-                    padding: '2px 6px', 
-                    borderRadius: '10px',
-                    flexShrink: 0
-                  }}>
-                    {item.assignee}
-                  </span>
-                )}
+                    <span
+                      className={`gantt-row-symbol ${item.isMilestone ? 'milestone' : item.isSubtask ? 'subtask' : ''}`}
+                      style={{ color: item.color || 'var(--primary)' }}
+                    >
+                      {item.isSubtask ? '↳' : item.isMilestone ? '◆' : '■'}
+                    </span>
+
+                    <div className="gantt-title-meta">
+                      <span className="gantt-title-text" title={item.title}>
+                        {item.title}
+                      </span>
+                      <span className="gantt-title-subline" title={item.assignee || undefined}>
+                        {item.assignee || (lang === 'uk' ? 'Без виконавця' : 'Unassigned')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="gantt-grid-cell gantt-date-cell" title={formatDisplayDate(item.startDate)}>{formatDisplayDate(item.startDate)}</div>
+                <div className="gantt-grid-cell gantt-date-cell" title={formatDisplayDate(item.endDate)}>{formatDisplayDate(item.endDate)}</div>
+                <div className="gantt-grid-cell" title={getDurationLabel(item.startDate, item.endDate)}>{getDurationLabel(item.startDate, item.endDate)}</div>
+                <div className="gantt-grid-cell">
+                  <div className="gantt-progress-cell">
+                    <span className={`gantt-status-dot status-${item.status}`} />
+                    <span>{item.progress}%</span>
+                  </div>
+                </div>
               </div>
             );
           })}
