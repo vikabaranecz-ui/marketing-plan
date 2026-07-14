@@ -100,6 +100,11 @@ export const sendEmailLoginLink = async (email: string): Promise<void> => {
   if (error) throw error;
 };
 
+export const signInWithPassword = async (email: string, password: string): Promise<void> => {
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+};
+
 export const signOutCloudUser = async (): Promise<void> => {
   cloudUserPromise = null;
   const { error } = await supabase.auth.signOut();

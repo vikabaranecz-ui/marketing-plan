@@ -1,11 +1,12 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import type { User } from '@supabase/supabase-js';
-import { ArrowRight, CheckCircle2, Cloud, LoaderCircle, LockKeyhole, Mail, ShieldCheck } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Cloud, KeyRound, LoaderCircle, LockKeyhole, Mail, ShieldCheck } from 'lucide-react';
 import { DEFAULT_TEMPLATES, TEAM_MEMBERS } from '../data/templatesData';
 import {
   loadCloudState,
   saveCloudState,
   sendEmailLoginLink,
+  signInWithPassword,
   signOutCloudUser,
   supabase,
   type CloudAppState,
@@ -52,6 +53,8 @@ export default function AuthGate({ children }: AuthGateProps) {
   const [anonymousState, setAnonymousState] = useState<CloudAppState | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [usePassword, setUsePassword] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [sentTo, setSentTo] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -130,6 +133,24 @@ export default function AuthGate({ children }: AuthGateProps) {
     }
   };
 
+  const handlePasswordLogin = async (event: FormEvent) => {
+    event.preventDefault();
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail || !password) return;
+
+    setIsSending(true);
+    setErrorMessage('');
+    try {
+      if (user) await signOutCloudUser();
+      await signInWithPassword(normalizedEmail, password);
+    } catch (error) {
+      console.error('Password login failed', error);
+      setErrorMessage('Неправильний email або пароль. Перевірте дані та спробуйте ще раз.');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   if (!isReady) {
     return (
       <main className="auth-screen auth-loading-screen">
@@ -165,7 +186,7 @@ export default function AuthGate({ children }: AuthGateProps) {
                 ? `Знайдено ваш поточний робочий простір із ${anonymousState?.customTemplates.length ?? 0} власними планами. Прив’яжемо його до вашого email.`
                 : 'Введіть email — і ми відкриємо ваш особистий простір. Новий email отримає чистий планувальник.'}
             </p>
-            <form className="auth-form" onSubmit={handleEmailLogin}>
+            <form className="auth-form" onSubmit={usePassword ? handlePasswordLogin : handleEmailLogin}>
               <label htmlFor="account-email">Ваш email</label>
               <div className="auth-input-wrap">
                 <Mail size={18} />
@@ -179,11 +200,38 @@ export default function AuthGate({ children }: AuthGateProps) {
                   required
                 />
               </div>
+              {usePassword && (
+                <>
+                  <label htmlFor="account-password">Пароль</label>
+                  <div className="auth-input-wrap">
+                    <KeyRound size={18} />
+                    <input
+                      id="account-password"
+                      type="password"
+                      value={password}
+                      onChange={event => setPassword(event.target.value)}
+                      placeholder="Введіть пароль"
+                      autoComplete="current-password"
+                      required
+                    />
+                  </div>
+                </>
+              )}
               {errorMessage && <div className="auth-error">{errorMessage}</div>}
               <button className="auth-submit" disabled={isSending}>
                 {isSending ? <LoaderCircle className="auth-spinner" size={18} /> : <LockKeyhole size={18} />}
-                {personalWorkspace ? 'Зберегти й увійти' : 'Увійти через email'}
+                {usePassword ? 'Увійти зараз' : personalWorkspace ? 'Зберегти й увійти' : 'Увійти через email'}
                 {!isSending && <ArrowRight size={18} />}
+              </button>
+              <button
+                type="button"
+                className="auth-secondary-button"
+                onClick={() => {
+                  setUsePassword(current => !current);
+                  setErrorMessage('');
+                }}
+              >
+                {usePassword ? 'Увійти через лист' : 'Увійти з паролем'}
               </button>
             </form>
             <div className="auth-security-note"><ShieldCheck size={16} /><span>Кожен email бачить лише власні плани, задачі, підзадачі та виконавців.</span></div>
