@@ -13,6 +13,7 @@ interface TaskDetailsDrawerProps {
   tasks: Task[];
   lang: Language;
   teamMembers: TeamMember[];
+  currentUserEmail: string;
 }
 
 const parseLocalDate = (dateStr: string): Date => {
@@ -49,10 +50,10 @@ export default function TaskDetailsDrawer({
   tasks,
   lang,
   teamMembers,
+  currentUserEmail,
 }: TaskDetailsDrawerProps) {
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [newCommentContent, setNewCommentContent] = useState('');
-  const [commenterName, setCommenterName] = useState(teamMembers[0]?.name ?? 'User');
 
   // Color palette options
   const colorOptions = [
@@ -150,7 +151,8 @@ export default function TaskDetailsDrawer({
     e.preventDefault();
     if (!newCommentContent.trim()) return;
 
-    const member = teamMembers.find(m => m.name === commenterName);
+    const commenterName = currentUserEmail || 'User';
+    const member = teamMembers.find(m => m.name === commenterName || commenterName.startsWith(`${m.name}@`));
     const avatarColor = member ? member.avatarColor : '#6b7280';
     
     const now = new Date();
@@ -501,20 +503,8 @@ export default function TaskDetailsDrawer({
 
             {/* Post comment form */}
             <form onSubmit={handleAddComment} style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Коментувати як / Post as:</span>
-                <select
-                  className="table-select"
-                  style={{ width: 'auto', padding: '2px 6px', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)', borderRadius: '4px' }}
-                  value={commenterName}
-                  onChange={e => setCommenterName(e.target.value)}
-                >
-                  {teamMembers.map(m => (
-                    <option key={m.name} value={m.name}>
-                      {m.name}
-                    </option>
-                  ))}
-                </select>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                {lang === 'uk' ? 'Коментар від' : 'Comment by'}: <strong>{currentUserEmail}</strong>
               </div>
 
               <div className="input-with-btn">

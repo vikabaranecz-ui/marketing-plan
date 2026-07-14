@@ -105,6 +105,18 @@ export const signInWithPassword = async (email: string, password: string): Promi
   if (error) throw error;
 };
 
+export const signUpWithPassword = async (email: string, password: string): Promise<boolean> => {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo: window.location.origin,
+    },
+  });
+  if (error) throw error;
+  return !data.session;
+};
+
 export const signOutCloudUser = async (): Promise<void> => {
   cloudUserPromise = null;
   const { error } = await supabase.auth.signOut();

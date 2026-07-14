@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { 
   Megaphone, Globe, Compass, BookOpen, Calendar, Search, Plus, 
   Download, Upload, Languages, RotateCcw, FileText, AlertTriangle,
   Sun, Moon, Copy, Trash2, Info, X, ChevronDown, ChevronRight,
   Menu, Eye, EyeOff, Table, Users, Cloud, CloudOff, LoaderCircle, Pencil,
-  Archive, CalendarRange, MoreHorizontal, SlidersHorizontal, FolderOpen, LogOut, CircleUserRound
+  Archive, CalendarRange, MoreHorizontal, SlidersHorizontal, FolderOpen, LogOut, CircleUserRound,
+  Share2, Lock, UserPlus, Shield
 } from 'lucide-react';
 import './App.css';
 import type { Task, MarketingTemplate, ActiveTab, ZoomLevel, Language, TeamMember } from './types';
@@ -27,6 +28,19 @@ import {
   type CloudAppState,
   type CloudSyncStatus,
 } from './lib/cloudMemory';
+import {
+  addCollaborationMember,
+  createCollaborationTeam,
+  loadCollaboration,
+  removeCollaborationMember,
+  sharePlanWithTeam,
+  stopSharingPlan,
+  subscribeToSharedPlans,
+  updateSharedPlan,
+  type CollaborationTeam,
+  type SharedPlan,
+  type TeamRole,
+} from './lib/collaboration';
 
 // Helper to load state from localStorage safely
 const getLocalStorage = <T,>(key: string, initialValue: T): T => {
@@ -80,6 +94,14 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(() =>
     getLocalStorage<TeamMember[]>('gantt_team_members', TEAM_MEMBERS)
   );
+  const [currentUserId, setCurrentUserId] = useState('');
+  const [collaborationTeams, setCollaborationTeams] = useState<CollaborationTeam[]>([]);
+  const [sharedPlans, setSharedPlans] = useState<SharedPlan[]>([]);
+  const [selectedTeamId, setSelectedTeamId] = useState('');
+  const [newTeamName, setNewTeamName] = useState('');
+  const [newMemberEmail, setNewMemberEmail] = useState('');
+  const [newMemberAccess, setNewMemberAccess] = useState<Exclude<TeamRole, 'owner'>>('editor');
+  const [isCollaborationBusy, setIsCollaborationBusy] = useState(false);
   const [planNameOverrides, setPlanNameOverrides] = useState<Record<string, string>>(() =>
     getLocalStorage<Record<string, string>>('gantt_plan_name_overrides', {})
   );
@@ -105,8 +127,6 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [isTeamManagerOpen, setIsTeamManagerOpen] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
-  const [newMemberName, setNewMemberName] = useState('');
-  const [newMemberRole, setNewMemberRole] = useState('');
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -168,18 +188,43 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const visibleDefaultTemplates = DEFAULT_TEMPLATES.filter(
     template => !hiddenDefaultTemplateIds.includes(template.id),
   );
-  const availableTemplates = [...visibleDefaultTemplates, ...customTemplates];
+  const privateTemplates = [...visibleDefaultTemplates, ...customTemplates];
+  const sharedPlanViews = useMemo(() => sharedPlans
+    .filter(plan => !plan.archived)
+    .map(plan => {
+      const viewId = plan.ownerId === currentUserId ? plan.sourcePlanId : `shared_${plan.id}`;
+      return {
+        plan,
+        template: {
+          ...plan.template,
+          id: viewId,
+          titleUa: plan.title,
+          titleEn: plan.title,
+          tasks: plan.tasks,
+        } satisfies MarketingTemplate,
+      };
+    }), [currentUserId, sharedPlans]);
+  const collaborationTemplates = sharedPlanViews
+    .filter(({ template }) => !privateTemplates.some(item => item.id === template.id))
+    .map(({ template }) => template);
+  const availableTemplates = [...privateTemplates, ...collaborationTemplates];
   const allTemplates = availableTemplates.filter(template => !archivedPlanIds.includes(template.id));
   const archivedTemplates = availableTemplates.filter(template => archivedPlanIds.includes(template.id));
   const activeTemplate = allTemplates.find(t => t.id === activeTemplateId) || allTemplates[0] || DEFAULT_TEMPLATES[0];
-  const getPlanTitle = (template: MarketingTemplate) =>
-    planNameOverrides[template.id] || (lang === 'uk' ? template.titleUa : template.titleEn);
+  const activeSharedPlan = sharedPlanViews.find(({ template }) => template.id === activeTemplate.id)?.plan ?? null;
+  const activeSharedTeam = activeSharedPlan ? collaborationTeams.find(team => team.id === activeSharedPlan.teamId) ?? null : null;
+  const canEditActivePlan = !activeSharedPlan || activeSharedTeam?.currentUserRole !== 'viewer';
+  const selectedCollaborationTeam = collaborationTeams.find(team => team.id === selectedTeamId) ?? collaborationTeams[0] ?? null;
+  const getPlanTitle = useCallback((template: MarketingTemplate) =>
+    sharedPlanViews.find(view => view.template.id === template.id)?.plan.title
+    || planNameOverrides[template.id]
+    || (lang === 'uk' ? template.titleUa : template.titleEn), [lang, planNameOverrides, sharedPlanViews]);
 
   // Load tasks when activeTemplateId changes
   useEffect(() => {
     const savedTasks = localStorage.getItem(`gantt_tasks_${activeTemplateId}`);
-    let nextTasks = activeTemplate.tasks;
-    if (savedTasks) {
+    let nextTasks = activeSharedPlan?.tasks ?? activeTemplate.tasks;
+    if (savedTasks && !activeSharedPlan) {
       try {
         nextTasks = JSON.parse(savedTasks);
       } catch {
@@ -191,7 +236,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
     localStorage.setItem('gantt_active_template_id', JSON.stringify(activeTemplateId));
     setSelectedTaskId(null);
     setHistory([]); // Reset undo history stack on project swap
-  }, [activeTemplateId, activeTemplate.tasks]);
+  }, [activeTemplateId, activeTemplate.tasks, activeSharedPlan]);
 
   useEffect(() => {
     if (!pendingTodayTask || pendingTodayTask.planId !== activeTemplateId || tasksTemplateId !== activeTemplateId) return;
@@ -250,6 +295,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
         if (cancelled) return;
 
         cloudUserIdRef.current = userId;
+        setCurrentUserId(userId);
 
         if (!cloudState) {
           cloudState = {
@@ -315,6 +361,11 @@ function App({ accountEmail, onSignOut }: AppProps) {
         }
 
         cloudHydratedRef.current = true;
+        const collaboration = await loadCollaboration();
+        if (cancelled) return;
+        setCollaborationTeams(collaboration.teams);
+        setSharedPlans(collaboration.sharedPlans);
+        setSelectedTeamId(previous => previous || collaboration.teams[0]?.id || '');
         setCloudStatus('synced');
       } catch (error) {
         console.error('Cloud memory initialization failed', error);
@@ -327,6 +378,51 @@ function App({ accountEmail, onSignOut }: AppProps) {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+    let cancelled = false;
+    const refresh = () => {
+      void loadCollaboration().then(collaboration => {
+        if (cancelled) return;
+        setCollaborationTeams(collaboration.teams);
+        setSharedPlans(collaboration.sharedPlans);
+        setSelectedTeamId(previous =>
+          collaboration.teams.some(team => team.id === previous)
+            ? previous
+            : collaboration.teams[0]?.id || ''
+        );
+      }).catch(error => console.error('Collaboration refresh failed', error));
+    };
+    const channel = subscribeToSharedPlans(refresh);
+    const handleFocus = () => refresh();
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', handleFocus);
+      void channel.unsubscribe();
+    };
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (!selectedCollaborationTeam) return;
+    setTeamMembers(previous => {
+      const next = [...previous];
+      selectedCollaborationTeam.members.forEach((member, index) => {
+        const name = member.displayName || member.email.split('@')[0];
+        if (!next.some(item => item.name.toLocaleLowerCase() === name.toLocaleLowerCase())) {
+          const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#3b82f6'];
+          next.push({
+            name,
+            roleUa: member.role === 'viewer' ? 'Перегляд' : member.role === 'owner' ? 'Власник' : 'Редактор',
+            roleEn: member.role,
+            avatarColor: colors[(previous.length + index) % colors.length],
+          });
+        }
+      });
+      return next.length === previous.length ? previous : next;
+    });
+  }, [selectedCollaborationTeam]);
 
   // Debounce writes so rapid task edits become one atomic cloud update.
   useEffect(() => {
@@ -379,6 +475,19 @@ function App({ accountEmail, onSignOut }: AppProps) {
     };
   }, [activeTemplateId, archivedPlanIds, customTemplates, hiddenDefaultTemplateIds, lang, planNameOverrides, showOnboarding, tasks, tasksTemplateId, teamMembers, theme]);
 
+  useEffect(() => {
+    if (!activeSharedPlan || !canEditActivePlan || tasksTemplateId !== activeTemplateId || !cloudHydratedRef.current) return;
+    const timer = window.setTimeout(() => {
+      void updateSharedPlan(activeSharedPlan.id, getPlanTitle(activeTemplate), activeTemplate, tasks)
+        .then(() => setCloudStatus('synced'))
+        .catch(error => {
+          console.error('Shared plan save failed', error);
+          setCloudStatus('error');
+        });
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [activeSharedPlan, activeTemplate, activeTemplateId, canEditActivePlan, getPlanTitle, tasks, tasksTemplateId]);
+
   // Toast notifier helper
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
     setToastMessage({ text, type });
@@ -427,6 +536,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
   };
 
   const handleArchiveTask = (taskId: string) => {
+    if (!canEditActivePlan) return showToast(lang === 'uk' ? 'У вас доступ лише для перегляду' : 'You have view-only access', 'error');
     const task = tasks.find(item => item.id === taskId);
     if (!task) return;
     saveToHistory(lang === 'uk' ? 'Завдання архівовано' : 'Archived task', 'Archived task');
@@ -436,13 +546,22 @@ function App({ accountEmail, onSignOut }: AppProps) {
   };
 
   const handleRestoreTask = (taskId: string) => {
+    if (!canEditActivePlan) return showToast(lang === 'uk' ? 'У вас доступ лише для перегляду' : 'You have view-only access', 'error');
     setTasks(previous => previous.map(item => item.id === taskId ? { ...item, archived: false } : item));
     showToast(lang === 'uk' ? 'Завдання відновлено' : 'Task restored');
   };
 
-  const handleRenamePlan = (templateId: string) => {
+  const handleRenamePlan = async (templateId: string) => {
     const template = allTemplates.find(item => item.id === templateId);
     if (!template) return;
+    const sharedView = sharedPlanViews.find(view => view.template.id === templateId);
+    if (sharedView) {
+      const team = collaborationTeams.find(item => item.id === sharedView.plan.teamId);
+      if (team?.currentUserRole === 'viewer') {
+        showToast(lang === 'uk' ? 'У вас доступ лише для перегляду' : 'You have view-only access', 'error');
+        return;
+      }
+    }
 
     const newName = prompt(
       lang === 'uk' ? 'Введіть нову назву плану:' : 'Enter a new plan name:',
@@ -450,70 +569,144 @@ function App({ accountEmail, onSignOut }: AppProps) {
     )?.trim();
     if (!newName || newName === getPlanTitle(template)) return;
 
-    setPlanNameOverrides(prev => ({ ...prev, [templateId]: newName }));
+    if (sharedView) {
+      try {
+        await updateSharedPlan(
+          sharedView.plan.id,
+          newName,
+          { ...sharedView.plan.template, titleUa: newName, titleEn: newName },
+          templateId === activeTemplateId ? tasks : sharedView.plan.tasks,
+        );
+        await refreshCollaborationState();
+      } catch (error) {
+        console.error('Shared plan rename failed', error);
+        showToast(lang === 'uk' ? 'Не вдалося перейменувати командний план' : 'Could not rename the team plan', 'error');
+        return;
+      }
+    } else {
+      setPlanNameOverrides(prev => ({ ...prev, [templateId]: newName }));
+    }
     showToast(lang === 'uk' ? 'Назву плану оновлено' : 'Plan name updated');
   };
 
-  const handleAddTeamMember = () => {
-    const name = newMemberName.trim();
-    const role = newMemberRole.trim();
-    if (!name) {
-      showToast(lang === 'uk' ? 'Введіть ім’я виконавця' : 'Enter an assignee name', 'error');
-      return;
-    }
-    if (teamMembers.some(member => member.name.toLocaleLowerCase() === name.toLocaleLowerCase())) {
-      showToast(lang === 'uk' ? 'Такий виконавець уже існує' : 'This assignee already exists', 'error');
-      return;
-    }
-
-    const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#3b82f6'];
-    const member: TeamMember = {
-      name,
-      roleUa: role || 'Учасник команди',
-      roleEn: role || 'Team Member',
-      avatarColor: colors[teamMembers.length % colors.length],
-    };
-    setTeamMembers(prev => [...prev, member]);
-    setNewMemberName('');
-    setNewMemberRole('');
-    showToast(lang === 'uk' ? 'Виконавця додано' : 'Assignee added');
+  const refreshCollaborationState = async () => {
+    const collaboration = await loadCollaboration();
+    setCollaborationTeams(collaboration.teams);
+    setSharedPlans(collaboration.sharedPlans);
+    setSelectedTeamId(previous =>
+      collaboration.teams.some(team => team.id === previous)
+        ? previous
+        : collaboration.teams[0]?.id || ''
+    );
   };
 
-  const handleDeleteTeamMember = (memberName: string) => {
-    const assignedCount = tasks.filter(task =>
-      task.assignee === memberName || task.subtasks.some(subtask => subtask.assignee === memberName)
-    ).length;
-    const message = lang === 'uk'
-      ? `Видалити виконавця «${memberName}»? Призначення буде знято${assignedCount ? ` з ${assignedCount} завдань поточного плану` : ''}.`
-      : `Delete assignee “${memberName}”? They will be unassigned${assignedCount ? ` from ${assignedCount} tasks in the current plan` : ''}.`;
-    if (!confirm(message)) return;
+  const handleCreateTeam = async () => {
+    const name = newTeamName.trim();
+    if (name.length < 2) {
+      showToast(lang === 'uk' ? 'Введіть назву команди' : 'Enter a team name', 'error');
+      return;
+    }
+    setIsCollaborationBusy(true);
+    try {
+      const teamId = await createCollaborationTeam(name);
+      setNewTeamName('');
+      await refreshCollaborationState();
+      setSelectedTeamId(teamId);
+      showToast(lang === 'uk' ? 'Команду створено' : 'Team created');
+    } catch (error) {
+      console.error('Team creation failed', error);
+      showToast(lang === 'uk' ? 'Не вдалося створити команду' : 'Could not create team', 'error');
+    } finally {
+      setIsCollaborationBusy(false);
+    }
+  };
 
-    const removeAssignments = (templateTasks: Task[]) => templateTasks.map(task => ({
-      ...task,
-      assignee: task.assignee === memberName ? '' : task.assignee,
-      subtasks: task.subtasks.map(subtask => ({
-        ...subtask,
-        assignee: subtask.assignee === memberName ? undefined : subtask.assignee,
-      })),
-    }));
+  const handleAddCollaborationMember = async () => {
+    if (!selectedCollaborationTeam || !newMemberEmail.trim()) return;
+    setIsCollaborationBusy(true);
+    try {
+      await addCollaborationMember(selectedCollaborationTeam.id, newMemberEmail, newMemberAccess);
+      setNewMemberEmail('');
+      await refreshCollaborationState();
+      showToast(lang === 'uk' ? 'Учасника додано до команди' : 'Member added to the team');
+    } catch (error) {
+      console.error('Team member creation failed', error);
+      const message = error instanceof Error && error.message.includes('create and confirm')
+        ? (lang === 'uk' ? 'Спочатку користувач має створити й підтвердити свій акаунт' : 'The user must create and confirm an account first')
+        : (lang === 'uk' ? 'Не вдалося додати учасника' : 'Could not add member');
+      showToast(message, 'error');
+    } finally {
+      setIsCollaborationBusy(false);
+    }
+  };
 
-    allTemplates.forEach(template => {
-      const storedTasks = getLocalStorage<Task[] | null>(`gantt_tasks_${template.id}`, null);
-      const sourceTasks = template.id === activeTemplateId ? tasks : (storedTasks ?? template.tasks);
-      localStorage.setItem(`gantt_tasks_${template.id}`, JSON.stringify(removeAssignments(sourceTasks)));
-    });
-    setTasks(prev => removeAssignments(prev));
-    setCustomTemplates(prev => prev.map(template => ({
-      ...template,
-      tasks: removeAssignments(template.tasks),
-    })));
-    setTeamMembers(prev => prev.filter(member => member.name !== memberName));
-    if (filterAssignee === memberName) setFilterAssignee('all');
-    showToast(lang === 'uk' ? 'Виконавця видалено' : 'Assignee deleted');
+  const handleRemoveCollaborationMember = async (memberUserId: string) => {
+    if (!selectedCollaborationTeam || !confirm(lang === 'uk' ? 'Видалити учасника з команди?' : 'Remove this team member?')) return;
+    setIsCollaborationBusy(true);
+    try {
+      await removeCollaborationMember(selectedCollaborationTeam.id, memberUserId);
+      await refreshCollaborationState();
+      showToast(lang === 'uk' ? 'Учасника видалено' : 'Member removed');
+    } catch (error) {
+      console.error('Team member removal failed', error);
+      showToast(lang === 'uk' ? 'Не вдалося видалити учасника' : 'Could not remove member', 'error');
+    } finally {
+      setIsCollaborationBusy(false);
+    }
+  };
+
+  const handleTogglePlanSharing = async () => {
+    if (activeSharedPlan) {
+      const team = collaborationTeams.find(item => item.id === activeSharedPlan.teamId);
+      const canStopSharing = activeSharedPlan.ownerId === currentUserId || team?.currentUserRole === 'owner';
+      if (!canStopSharing) {
+        showToast(lang === 'uk' ? 'Лише власник плану або команди може зробити його приватним' : 'Only the plan or team owner can make it private', 'error');
+        return;
+      }
+      if (!confirm(lang === 'uk' ? 'Зробити цей план приватним? Команда втратить доступ.' : 'Make this plan private? The team will lose access.')) return;
+      setIsCollaborationBusy(true);
+      try {
+        await stopSharingPlan(activeSharedPlan.id);
+        await refreshCollaborationState();
+        showToast(lang === 'uk' ? 'План знову приватний' : 'The plan is private again');
+      } catch (error) {
+        console.error('Stop sharing failed', error);
+        showToast(lang === 'uk' ? 'Не вдалося змінити доступ' : 'Could not change access', 'error');
+      } finally {
+        setIsCollaborationBusy(false);
+      }
+      return;
+    }
+
+    if (!selectedCollaborationTeam) {
+      setIsTeamManagerOpen(true);
+      showToast(lang === 'uk' ? 'Спочатку створіть команду' : 'Create a team first', 'error');
+      return;
+    }
+
+    setIsCollaborationBusy(true);
+    try {
+      await sharePlanWithTeam({
+        teamId: selectedCollaborationTeam.id,
+        ownerId: currentUserId,
+        sourcePlanId: activeTemplate.id,
+        title: getPlanTitle(activeTemplate),
+        template: activeTemplate,
+        tasks,
+      });
+      await refreshCollaborationState();
+      showToast(lang === 'uk' ? `План відкрито для команди «${selectedCollaborationTeam.name}»` : `Plan shared with “${selectedCollaborationTeam.name}”`);
+    } catch (error) {
+      console.error('Plan sharing failed', error);
+      showToast(lang === 'uk' ? 'Не вдалося поділитися планом' : 'Could not share the plan', 'error');
+    } finally {
+      setIsCollaborationBusy(false);
+    }
   };
 
   // Add Task
   const handleAddTask = (status: Task['status'] = 'todo') => {
+    if (!canEditActivePlan) return showToast(lang === 'uk' ? 'У вас доступ лише для перегляду' : 'You have view-only access', 'error');
     saveToHistory(
       lang === 'uk' ? 'Додано нове завдання' : 'Added new task',
       'Added new task'
@@ -545,6 +738,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
 
   // Clone/Duplicate Task
   const handleCloneTask = (taskId: string) => {
+    if (!canEditActivePlan) return showToast(lang === 'uk' ? 'У вас доступ лише для перегляду' : 'You have view-only access', 'error');
     saveToHistory(
       lang === 'uk' ? 'Здубльовано завдання' : 'Duplicated task',
       'Duplicated task'
@@ -666,6 +860,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
 
   // Update single Task with auto-scheduling recalculation and parent task date synchronization
   const handleUpdateTask = (updatedTask: Task) => {
+    if (!canEditActivePlan) return showToast(lang === 'uk' ? 'У вас доступ лише для перегляду' : 'You have view-only access', 'error');
     setTasks(prev => {
       const syncedTask = syncParentTaskDates(updatedTask);
       const replaced = prev.map(t => t.id === syncedTask.id ? syncedTask : t);
@@ -689,6 +884,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
 
   // Delete Task
   const handleDeleteTask = (taskId: string) => {
+    if (!canEditActivePlan) return showToast(lang === 'uk' ? 'У вас доступ лише для перегляду' : 'You have view-only access', 'error');
     saveToHistory(
       lang === 'uk' ? 'Видалено завдання' : 'Deleted task',
       'Deleted task'
@@ -1225,13 +1421,58 @@ function App({ accountEmail, onSignOut }: AppProps) {
               </div>
             )}
           </div>
+
+          {collaborationTemplates.length > 0 && (
+            <div>
+              <h3 className="sidebar-section-title sidebar-section-heading">
+                <span className="sidebar-section-toggle">
+                  <Users size={14} />
+                  <span>{lang === 'uk' ? 'Командні плани' : 'Team plans'}</span>
+                </span>
+              </h3>
+              <div className="template-list">
+                {collaborationTemplates.map(template => (
+                  <div className="template-row" key={template.id}>
+                    <button
+                      className={`template-item ${activeTemplateId === template.id ? 'active' : ''}`}
+                      onClick={() => handleTemplateSelect(template.id)}
+                    >
+                      <div className="template-icon-wrapper"><Users size={16} /></div>
+                      <div className="template-details">
+                        <h4>{getPlanTitle(template)}</h4>
+                        <span>{collaborationTeams.find(team => team.id === sharedPlanViews.find(view => view.template.id === template.id)?.plan.teamId)?.name}</span>
+                      </div>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="sidebar-actions">
           <div className="sidebar-actions-header">
-            <span>{lang === 'uk' ? 'Дії з планом' : 'Plan actions'}</span>
+            <span className={`plan-access-badge ${activeSharedPlan ? 'team' : 'private'}`}>
+              {activeSharedPlan ? <Users size={12} /> : <Lock size={12} />}
+              {activeSharedPlan
+                ? (lang === 'uk' ? 'Командний' : 'Team')
+                : (lang === 'uk' ? 'Приватний' : 'Private')}
+            </span>
             <strong title={activeTemplateTitle}>{activeTemplateTitle}</strong>
           </div>
+
+          <button className="sidebar-action-btn" onClick={() => void handleTogglePlanSharing()} disabled={isCollaborationBusy}>
+            <span className="sidebar-action-icon">{activeSharedPlan ? <Lock size={15} /> : <Share2 size={15} />}</span>
+            <span className="sidebar-action-copy">
+              <strong>{activeSharedPlan
+                ? (lang === 'uk' ? 'Зробити приватним' : 'Make private')
+                : (lang === 'uk' ? 'Поділитися з командою' : 'Share with team')}</strong>
+              <small>{activeSharedPlan
+                ? (collaborationTeams.find(team => team.id === activeSharedPlan.teamId)?.name ?? '')
+                : (selectedCollaborationTeam?.name ?? (lang === 'uk' ? 'Оберіть або створіть команду' : 'Choose or create a team'))}</small>
+            </span>
+            <ChevronRight className="sidebar-action-arrow" size={14} />
+          </button>
 
           <button className="sidebar-action-btn" onClick={handleDuplicateActivePlan} title={getTranslation(lang, 'duplicatePlan')}>
             <span className="sidebar-action-icon"><Copy size={15} /></span>
@@ -1834,7 +2075,8 @@ function App({ accountEmail, onSignOut }: AppProps) {
               </span>
             </div>
             <div className="mobile-action-grid">
-              <button onClick={() => { setIsMobileMenuOpen(false); setIsTeamManagerOpen(true); }}><Users size={19} /><span>{lang === 'uk' ? 'Виконавці' : 'Assignees'}</span></button>
+              <button onClick={() => { setIsMobileMenuOpen(false); setIsTeamManagerOpen(true); }}><Users size={19} /><span>{lang === 'uk' ? 'Команда' : 'Team'}</span></button>
+              <button onClick={() => { setIsMobileMenuOpen(false); void handleTogglePlanSharing(); }}>{activeSharedPlan ? <Lock size={19} /> : <Share2 size={19} />}<span>{activeSharedPlan ? (lang === 'uk' ? 'Приватний' : 'Private') : (lang === 'uk' ? 'Поділитися' : 'Share')}</span></button>
               <button onClick={() => { setIsMobileMenuOpen(false); setIsArchiveOpen(true); }}><Archive size={19} /><span>{lang === 'uk' ? 'Архів' : 'Archive'}</span></button>
               <button onClick={() => { setIsMobileMenuOpen(false); handleDuplicateActivePlan(); }}><Copy size={19} /><span>{lang === 'uk' ? 'Дублювати' : 'Duplicate'}</span></button>
               <button onClick={() => { setIsMobileMenuOpen(false); handleSaveAsTemplate(); }}><Plus size={19} /><span>{lang === 'uk' ? 'Як шаблон' : 'As template'}</span></button>
@@ -1872,6 +2114,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
           tasks={activeTasks}
           lang={lang}
           teamMembers={teamMembers}
+          currentUserEmail={accountEmail}
         />
       )}
 
@@ -1883,67 +2126,69 @@ function App({ accountEmail, onSignOut }: AppProps) {
             <div className="team-manager-header">
               <div>
                 <div className="dialog-header" id="team-manager-title">
-                  {lang === 'uk' ? 'Виконавці' : 'Assignees'}
+                  {lang === 'uk' ? 'Команда і доступ' : 'Team & access'}
                 </div>
-                <p>{lang === 'uk' ? 'Додавайте людей та керуйте призначеннями.' : 'Add people and manage assignments.'}</p>
+                <p>{lang === 'uk' ? 'Керуйте учасниками та відкривайте їм лише вибрані плани.' : 'Manage members and share only selected plans.'}</p>
               </div>
               <button className="btn-icon" onClick={() => setIsTeamManagerOpen(false)} aria-label={getTranslation(lang, 'close')}>
                 <X size={16} />
               </button>
             </div>
 
-            <div className="team-member-list">
-              {teamMembers.map(member => (
-                <div className="team-member-row" key={member.name}>
-                  <span className="team-member-avatar" style={{ backgroundColor: member.avatarColor }}>
-                    {member.name.slice(0, 2).toUpperCase()}
-                  </span>
-                  <span className="team-member-copy">
-                    <strong>{member.name}</strong>
-                    <small>{lang === 'uk' ? member.roleUa : member.roleEn}</small>
-                  </span>
-                  <button
-                    className="btn-icon danger-icon"
-                    onClick={() => handleDeleteTeamMember(member.name)}
-                    title={lang === 'uk' ? 'Видалити виконавця' : 'Delete assignee'}
-                    aria-label={`${lang === 'uk' ? 'Видалити виконавця' : 'Delete assignee'}: ${member.name}`}
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-              ))}
-              {teamMembers.length === 0 && (
-                <div className="empty-mini">
-                  {lang === 'uk' ? 'Виконавців ще немає' : 'No assignees yet'}
-                </div>
-              )}
-            </div>
+            {collaborationTeams.length > 0 && (
+              <label className="team-selector-label">
+                <span>{lang === 'uk' ? 'Активна команда' : 'Active team'}</span>
+                <select className="form-control" value={selectedCollaborationTeam?.id ?? ''} onChange={event => setSelectedTeamId(event.target.value)}>
+                  {collaborationTeams.map(team => <option value={team.id} key={team.id}>{team.name}</option>)}
+                </select>
+              </label>
+            )}
 
-            <form
-              className="team-member-form"
-              onSubmit={event => {
-                event.preventDefault();
-                handleAddTeamMember();
-              }}
-            >
+            {selectedCollaborationTeam && (
+              <>
+                <div className="team-access-summary">
+                  <Shield size={18} />
+                  <span><strong>{selectedCollaborationTeam.name}</strong><small>{lang === 'uk' ? `${selectedCollaborationTeam.members.length} учасників · ваша роль: ${selectedCollaborationTeam.currentUserRole}` : `${selectedCollaborationTeam.members.length} members · your role: ${selectedCollaborationTeam.currentUserRole}`}</small></span>
+                </div>
+                <div className="team-member-list">
+                  {selectedCollaborationTeam.members.map(member => (
+                    <div className="team-member-row" key={member.userId}>
+                      <span className="team-member-avatar">{member.displayName.slice(0, 2).toUpperCase()}</span>
+                      <span className="team-member-copy">
+                        <strong>{member.displayName}</strong>
+                        <small>{member.email} · {member.role}</small>
+                      </span>
+                      {selectedCollaborationTeam.currentUserRole === 'owner' && member.role !== 'owner' && (
+                        <button className="btn-icon danger-icon" onClick={() => void handleRemoveCollaborationMember(member.userId)} aria-label={lang === 'uk' ? 'Видалити учасника' : 'Remove member'}><Trash2 size={15} /></button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {selectedCollaborationTeam?.currentUserRole === 'owner' && (
+              <form className="team-member-form" onSubmit={event => { event.preventDefault(); void handleAddCollaborationMember(); }}>
+                <input className="form-control" type="email" value={newMemberEmail} onChange={event => setNewMemberEmail(event.target.value)} placeholder={lang === 'uk' ? 'Email зареєстрованого користувача' : 'Registered user email'} required />
+                <select className="form-control" value={newMemberAccess} onChange={event => setNewMemberAccess(event.target.value as Exclude<TeamRole, 'owner'>)}>
+                  <option value="editor">{lang === 'uk' ? 'Редактор — може змінювати' : 'Editor — can edit'}</option>
+                  <option value="viewer">{lang === 'uk' ? 'Перегляд — лише читання' : 'Viewer — read only'}</option>
+                </select>
+                <button className="btn btn-primary" type="submit" disabled={isCollaborationBusy}><UserPlus size={16} />{lang === 'uk' ? 'Додати до команди' : 'Add to team'}</button>
+              </form>
+            )}
+
+            <form className="team-create-form" onSubmit={event => { event.preventDefault(); void handleCreateTeam(); }}>
               <input
                 className="form-control"
-                autoFocus
-                value={newMemberName}
-                onChange={event => setNewMemberName(event.target.value)}
-                placeholder={lang === 'uk' ? 'Ім’я виконавця' : 'Assignee name'}
-                aria-label={lang === 'uk' ? 'Ім’я виконавця' : 'Assignee name'}
+                value={newTeamName}
+                onChange={event => setNewTeamName(event.target.value)}
+                placeholder={lang === 'uk' ? 'Назва нової команди' : 'New team name'}
+                required
               />
-              <input
-                className="form-control"
-                value={newMemberRole}
-                onChange={event => setNewMemberRole(event.target.value)}
-                placeholder={lang === 'uk' ? 'Роль (необов’язково)' : 'Role (optional)'}
-                aria-label={lang === 'uk' ? 'Роль виконавця' : 'Assignee role'}
-              />
-              <button className="btn btn-primary" type="submit">
+              <button className="btn btn-secondary" type="submit" disabled={isCollaborationBusy}>
                 <Plus size={16} />
-                {lang === 'uk' ? 'Додати виконавця' : 'Add assignee'}
+                {lang === 'uk' ? 'Створити команду' : 'Create team'}
               </button>
             </form>
           </div>

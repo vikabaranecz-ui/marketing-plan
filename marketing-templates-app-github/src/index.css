@@ -739,6 +739,27 @@ textarea:focus-visible {
   text-transform: uppercase;
 }
 
+.sidebar-actions-header .plan-access-badge {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.plan-access-badge.private {
+  background: var(--bg-hover);
+  color: var(--text-muted);
+}
+
+.plan-access-badge.team {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
 .sidebar-actions-header strong {
   overflow: hidden;
   color: var(--text-primary);
@@ -3509,6 +3530,7 @@ textarea:focus-visible {
 .team-manager-dialog {
   width: 480px;
   max-height: min(680px, 90vh);
+  overflow-y: auto;
 }
 
 .archive-dialog {
@@ -3668,6 +3690,7 @@ textarea:focus-visible {
   color: #fff;
   font-size: 0.72rem;
   font-weight: 700;
+  background: linear-gradient(135deg, var(--primary), #8b5cf6);
 }
 
 .team-member-copy {
@@ -3698,6 +3721,51 @@ textarea:focus-visible {
 
 .team-member-form .btn {
   grid-column: 1 / -1;
+}
+
+.team-selector-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.team-access-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--border-color-active);
+  border-radius: var(--radius-md);
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.team-access-summary > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.team-access-summary strong {
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.team-access-summary small {
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+}
+
+.team-create-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-color);
 }
 
 /* Dynamic onboarding notice at the bottom */
@@ -4888,6 +4956,10 @@ textarea:focus-visible {
 
   .team-member-form .btn {
     grid-column: 1;
+  }
+
+  .team-create-form {
+    grid-template-columns: 1fr;
   }
 }
 .undo-dropdown-overlay {

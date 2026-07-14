@@ -7,6 +7,7 @@ import {
   saveCloudState,
   sendEmailLoginLink,
   signInWithPassword,
+  signUpWithPassword,
   signOutCloudUser,
   supabase,
   type CloudAppState,
@@ -55,6 +56,7 @@ export default function AuthGate({ children }: AuthGateProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [usePassword, setUsePassword] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [sentTo, setSentTo] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -141,11 +143,22 @@ export default function AuthGate({ children }: AuthGateProps) {
     setIsSending(true);
     setErrorMessage('');
     try {
+      if (password.length < 8) {
+        setErrorMessage('Пароль має містити щонайменше 8 символів.');
+        return;
+      }
       if (user) await signOutCloudUser();
-      await signInWithPassword(normalizedEmail, password);
+      if (isSignUp) {
+        const requiresConfirmation = await signUpWithPassword(normalizedEmail, password);
+        if (requiresConfirmation) setSentTo(normalizedEmail);
+      } else {
+        await signInWithPassword(normalizedEmail, password);
+      }
     } catch (error) {
       console.error('Password login failed', error);
-      setErrorMessage('Неправильний email або пароль. Перевірте дані та спробуйте ще раз.');
+      setErrorMessage(isSignUp
+        ? 'Не вдалося створити акаунт. Можливо, цей email уже зареєстрований.'
+        : 'Неправильний email або пароль. Перевірте дані та спробуйте ще раз.');
     } finally {
       setIsSending(false);
     }
@@ -220,7 +233,9 @@ export default function AuthGate({ children }: AuthGateProps) {
               {errorMessage && <div className="auth-error">{errorMessage}</div>}
               <button className="auth-submit" disabled={isSending}>
                 {isSending ? <LoaderCircle className="auth-spinner" size={18} /> : <LockKeyhole size={18} />}
-                {usePassword ? 'Увійти зараз' : personalWorkspace ? 'Зберегти й увійти' : 'Увійти через email'}
+                {usePassword
+                  ? (isSignUp ? 'Створити акаунт' : 'Увійти зараз')
+                  : personalWorkspace ? 'Зберегти й увійти' : 'Увійти через email'}
                 {!isSending && <ArrowRight size={18} />}
               </button>
               <button
@@ -228,13 +243,26 @@ export default function AuthGate({ children }: AuthGateProps) {
                 className="auth-secondary-button"
                 onClick={() => {
                   setUsePassword(current => !current);
+                  setIsSignUp(false);
                   setErrorMessage('');
                 }}
               >
                 {usePassword ? 'Увійти через лист' : 'Увійти з паролем'}
               </button>
+              {usePassword && (
+                <button
+                  type="button"
+                  className="auth-secondary-button"
+                  onClick={() => {
+                    setIsSignUp(current => !current);
+                    setErrorMessage('');
+                  }}
+                >
+                  {isSignUp ? 'У мене вже є акаунт' : 'Створити новий акаунт'}
+                </button>
+              )}
             </form>
-            <div className="auth-security-note"><ShieldCheck size={16} /><span>Кожен email бачить лише власні плани, задачі, підзадачі та виконавців.</span></div>
+            <div className="auth-security-note"><ShieldCheck size={16} /><span>Приватні плани бачите лише ви. Командні плани доступні тільки учасникам вибраної команди.</span></div>
           </>
         )}
       </section>
