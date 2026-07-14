@@ -745,8 +745,6 @@ function App() {
     showToast(lang === 'uk' ? 'Шаблон видалено' : 'Template deleted', 'success');
   };
 
-  const handleDeleteActivePlan = () => handleDeletePlan(activeTemplateId);
-
   // Save current plan state as a custom template
   const handleSaveAsTemplate = () => {
     const titlePrompt = prompt(
@@ -1001,27 +999,36 @@ function App() {
         </div>
 
         <div className="sidebar-actions">
-          <div className="sidebar-actions-row">
-            <button className="btn btn-secondary btn-compact" onClick={handleDuplicateActivePlan} title={getTranslation(lang, 'duplicatePlan')}>
-              <Copy size={14} />
-              <span>{lang === 'uk' ? 'Дублювати' : 'Duplicate'}</span>
-            </button>
-            
-            {allTemplates.length > 1 && (
-              <button className="btn btn-danger btn-square" onClick={handleDeleteActivePlan} title={getTranslation(lang, 'deletePlan')}>
-                <Trash2 size={14} />
-              </button>
-            )}
+          <div className="sidebar-actions-header">
+            <span>{lang === 'uk' ? 'Дії з планом' : 'Plan actions'}</span>
+            <strong title={activeTemplateTitle}>{activeTemplateTitle}</strong>
           </div>
 
-          <button className="btn btn-secondary" onClick={handleSaveAsTemplate}>
-            <Plus size={15} />
-            {getTranslation(lang, 'addCustomTemplate')}
+          <button className="sidebar-action-btn" onClick={handleDuplicateActivePlan} title={getTranslation(lang, 'duplicatePlan')}>
+            <span className="sidebar-action-icon"><Copy size={15} /></span>
+            <span className="sidebar-action-copy">
+              <strong>{lang === 'uk' ? 'Дублювати план' : 'Duplicate plan'}</strong>
+              <small>{lang === 'uk' ? 'Створити незалежну копію' : 'Create an independent copy'}</small>
+            </span>
+            <ChevronRight className="sidebar-action-arrow" size={14} />
           </button>
-          
-          <button className="btn btn-danger" onClick={() => setIsResetConfirmOpen(true)}>
-            <RotateCcw size={15} />
-            {getTranslation(lang, 'resetTemplate')}
+
+          <button className="sidebar-action-btn" onClick={handleSaveAsTemplate} title={getTranslation(lang, 'addCustomTemplate')}>
+            <span className="sidebar-action-icon"><Plus size={15} /></span>
+            <span className="sidebar-action-copy">
+              <strong>{getTranslation(lang, 'addCustomTemplate')}</strong>
+              <small>{lang === 'uk' ? 'Зберегти структуру для повторного використання' : 'Save structure for reuse'}</small>
+            </span>
+            <ChevronRight className="sidebar-action-arrow" size={14} />
+          </button>
+
+          <button className="sidebar-action-btn sidebar-action-danger" onClick={() => setIsResetConfirmOpen(true)} title={getTranslation(lang, 'resetTemplate')}>
+            <span className="sidebar-action-icon"><RotateCcw size={15} /></span>
+            <span className="sidebar-action-copy">
+              <strong>{getTranslation(lang, 'resetTemplate')}</strong>
+              <small>{lang === 'uk' ? 'Повернути початкові дані плану' : 'Restore the plan’s original data'}</small>
+            </span>
+            <ChevronRight className="sidebar-action-arrow" size={14} />
           </button>
         </div>
       </aside>
