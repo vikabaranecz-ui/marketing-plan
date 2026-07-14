@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, type TouchEvent as ReactTouchEvent } from 'react';
 import { 
   Megaphone, Globe, Compass, BookOpen, Calendar, Search, Plus, 
   Download, Upload, Languages, RotateCcw, FileText, AlertTriangle,
@@ -63,6 +63,9 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 }
 
+const PULL_REFRESH_THRESHOLD = 64;
+const PULL_REFRESH_MAX_DISTANCE = 92;
+
 function App({ accountEmail, onSignOut }: AppProps) {
   // Theme & Language Settings
   const [theme, setTheme] = useState<'light' | 'dark'>(() => getLocalStorage<'light' | 'dark'>('gantt_theme', 'light'));
@@ -87,6 +90,8 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const [isMobilePlanSheetOpen, setIsMobilePlanSheetOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isPullRefreshing, setIsPullRefreshing] = useState(false);
 
 
   // Custom Templates/Projects list
@@ -129,6 +134,10 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const cloudUserIdRef = useRef<string | null>(null);
   const cloudHydratedRef = useRef(false);
   const cloudSaveTimerRef = useRef<number | null>(null);
+  const cloudStatusRef = useRef<CloudSyncStatus>('connecting');
+  const contentAreaRef = useRef<HTMLDivElement>(null);
+  const pullStartRef = useRef<{ x: number; y: number } | null>(null);
+  const pullDistanceRef = useRef(0);
   
   // Dialog confirmation states
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
@@ -137,6 +146,77 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    cloudStatusRef.current = cloudStatus;
+  }, [cloudStatus]);
+
+  const resetPullGesture = () => {
+    pullStartRef.current = null;
+    if (!isPullRefreshing) {
+      pullDistanceRef.current = 0;
+      setPullDistance(0);
+    }
+  };
+
+  const handlePullStart = (event: ReactTouchEvent<HTMLDivElement>) => {
+    if (!isMobile || isPullRefreshing || contentAreaRef.current?.scrollTop !== 0) return;
+
+    let scrollableTarget = event.target as HTMLElement | null;
+    while (scrollableTarget && scrollableTarget !== contentAreaRef.current) {
+      const overflowY = window.getComputedStyle(scrollableTarget).overflowY;
+      if (
+        (overflowY === 'auto' || overflowY === 'scroll')
+        && scrollableTarget.scrollHeight > scrollableTarget.clientHeight
+        && scrollableTarget.scrollTop > 0
+      ) return;
+      scrollableTarget = scrollableTarget.parentElement;
+    }
+
+    const touch = event.touches[0];
+    pullStartRef.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const handlePullMove = (event: ReactTouchEvent<HTMLDivElement>) => {
+    const start = pullStartRef.current;
+    if (!start || isPullRefreshing) return;
+
+    const touch = event.touches[0];
+    const deltaY = touch.clientY - start.y;
+    const deltaX = Math.abs(touch.clientX - start.x);
+    if (deltaY <= 0 || deltaX > deltaY) {
+      resetPullGesture();
+      return;
+    }
+
+    event.preventDefault();
+    const nextDistance = Math.min(PULL_REFRESH_MAX_DISTANCE, deltaY * 0.48);
+    pullDistanceRef.current = nextDistance;
+    setPullDistance(nextDistance);
+  };
+
+  const handlePullEnd = () => {
+    pullStartRef.current = null;
+    if (pullDistanceRef.current < PULL_REFRESH_THRESHOLD || isPullRefreshing) {
+      pullDistanceRef.current = 0;
+      setPullDistance(0);
+      return;
+    }
+
+    setIsPullRefreshing(true);
+    pullDistanceRef.current = PULL_REFRESH_THRESHOLD;
+    setPullDistance(PULL_REFRESH_THRESHOLD);
+    void (async () => {
+      const startedAt = Date.now();
+      while (
+        (cloudStatusRef.current === 'saving' || cloudStatusRef.current === 'connecting')
+        && Date.now() - startedAt < 3500
+      ) {
+        await new Promise(resolve => window.setTimeout(resolve, 180));
+      }
+      window.location.reload();
+    })();
+  };
 
   // Undo/History states
   const [history, setHistory] = useState<Array<{ tasks: Task[]; labelUa: string; labelEn: string }>>([]);
@@ -1542,6 +1622,24 @@ function App({ accountEmail, onSignOut }: AppProps) {
 
       {/* Main Workspace */}
       <main className="main-workspace">
+        <div
+          className={`mobile-pull-indicator ${pullDistance >= PULL_REFRESH_THRESHOLD ? 'ready' : ''} ${isPullRefreshing ? 'refreshing' : ''}`}
+          style={{
+            opacity: pullDistance > 4 || isPullRefreshing ? 1 : 0,
+            transform: `translate(-50%, ${Math.max(-54, pullDistance - 54)}px)`,
+          }}
+          role="status"
+          aria-live="polite"
+        >
+          <RotateCcw size={16} style={{ transform: isPullRefreshing ? undefined : `rotate(${pullDistance * 3}deg)` }} />
+          <span>
+            {isPullRefreshing
+              ? (lang === 'uk' ? 'Оновлюємо…' : 'Refreshing…')
+              : pullDistance >= PULL_REFRESH_THRESHOLD
+                ? (lang === 'uk' ? 'Відпустіть для оновлення' : 'Release to refresh')
+                : (lang === 'uk' ? 'Потягніть для оновлення' : 'Pull to refresh')}
+          </span>
+        </div>
         <header className="mobile-app-header">
           <button
             className="mobile-header-button"
@@ -1939,7 +2037,14 @@ function App({ accountEmail, onSignOut }: AppProps) {
         )}
 
         {/* View Switcher Content */}
-        <div className="content-area">
+        <div
+          className="content-area"
+          ref={contentAreaRef}
+          onTouchStart={handlePullStart}
+          onTouchMove={handlePullMove}
+          onTouchEnd={handlePullEnd}
+          onTouchCancel={resetPullGesture}
+        >
           {activeTab === 'plans' && (
             isMobile ? (
               <MobilePlansView
