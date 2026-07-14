@@ -2689,3 +2689,32 @@ textarea:focus-visible {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Supabase cloud-memory status */
+.cloud-sync-status:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.cloud-sync-synced {
+  color: #10b981;
+}
+
+.cloud-sync-saving,
+.cloud-sync-connecting {
+  color: var(--primary);
+}
+
+.cloud-sync-error {
+  color: var(--danger);
+}
+
+.cloud-sync-saving svg,
+.cloud-sync-connecting svg {
+  animation: cloud-sync-spin 1s linear infinite;
+}
+
+@keyframes cloud-sync-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

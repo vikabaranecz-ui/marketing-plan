@@ -12,7 +12,14 @@ Connected Supabase project:
 Files in this folder:
 
 - `project.json`: safe project connection metadata
-- `.env.example`: frontend environment variable template
 - `database.types.ts`: generated TypeScript database types
+- `schema.sql`: reproducible table, grants, and RLS definition
 
-The Supabase connector is connected. To use this from a Vite/React app, copy the values from `.env.example` into that app's `.env.local` and add the anon key from Supabase dashboard.
+Cloud memory is implemented in the Vite/React app through the `public.app_states`
+table. Each authenticated user owns one JSONB state row. Row Level Security limits
+all reads and writes to `auth.uid() = user_id`, while the frontend uses only the
+project's public publishable key.
+
+The app automatically migrates existing browser data to Supabase after its first
+successful sign-in. Anonymous sign-ins must be enabled under Authentication →
+Providers for the zero-login experience used by the app.

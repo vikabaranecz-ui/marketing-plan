@@ -3,7 +3,7 @@ import {
   Megaphone, Globe, Compass, BookOpen, Calendar, Search, Plus, 
   Download, Upload, Languages, RotateCcw, FileText, AlertTriangle,
   Sun, Moon, Copy, Trash2, Info, X, ChevronDown, ChevronRight,
-  Menu, Eye, EyeOff, Table, Users
+  Menu, Eye, EyeOff, Table, Users, Cloud, CloudOff, LoaderCircle
 } from 'lucide-react';
 import './App.css';
 import type { Task, MarketingTemplate, ActiveTab, ZoomLevel, Language } from './types';
@@ -15,6 +15,13 @@ import GridView from './components/GridView';
 import KanbanBoard from './components/KanbanBoard';
 import WorkloadView from './components/WorkloadView';
 import TaskDetailsDrawer from './components/TaskDetailsDrawer';
+import {
+  ensureCloudUser,
+  loadCloudState,
+  saveCloudState,
+  type CloudAppState,
+  type CloudSyncStatus,
+} from './lib/cloudMemory';
 
 // Helper to load state from localStorage safely
 const getLocalStorage = <T,>(key: string, initialValue: T): T => {
@@ -60,7 +67,19 @@ function App() {
   );
   
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasksTemplateId, setTasksTemplateId] = useState(activeTemplateId);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [cloudStatus, setCloudStatus] = useState<CloudSyncStatus>('connecting');
+  const cloudUserIdRef = useRef<string | null>(null);
+  const cloudHydratedRef = useRef(false);
+  const cloudSaveTimerRef = useRef<number | null>(null);
+  const initialLocalStateRef = useRef({
+    theme,
+    lang,
+    showOnboarding,
+    customTemplates,
+    activeTemplateId,
+  });
   
   // Dialog confirmation states
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
@@ -128,16 +147,17 @@ function App() {
   // Load tasks when activeTemplateId changes
   useEffect(() => {
     const savedTasks = localStorage.getItem(`gantt_tasks_${activeTemplateId}`);
+    let nextTasks = activeTemplate.tasks;
     if (savedTasks) {
       try {
-        setTasks(JSON.parse(savedTasks));
+        nextTasks = JSON.parse(savedTasks);
       } catch {
-        setTasks(activeTemplate.tasks);
+        nextTasks = activeTemplate.tasks;
       }
-    } else {
-      setTasks(activeTemplate.tasks);
     }
-    localStorage.setItem('gantt_active_template_id', activeTemplateId);
+    setTasks(nextTasks);
+    setTasksTemplateId(activeTemplateId);
+    localStorage.setItem('gantt_active_template_id', JSON.stringify(activeTemplateId));
     setSelectedTaskId(null);
     setHistory([]); // Reset undo history stack on project swap
   }, [activeTemplateId, activeTemplate.tasks]);
@@ -158,6 +178,129 @@ function App() {
   useEffect(() => {
     localStorage.setItem('gantt_lang', lang);
   }, [lang]);
+
+  useEffect(() => {
+    localStorage.setItem('gantt_show_onboarding', JSON.stringify(showOnboarding));
+  }, [showOnboarding]);
+
+  // Restore cloud state, or migrate all existing local data on first connection.
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrateCloudMemory = async () => {
+      setCloudStatus('connecting');
+      try {
+        const userId = await ensureCloudUser();
+        const cloudState = await loadCloudState(userId);
+        if (cancelled) return;
+
+        cloudUserIdRef.current = userId;
+
+        if (cloudState) {
+          Object.entries(cloudState.tasksByTemplate).forEach(([templateId, templateTasks]) => {
+            localStorage.setItem(`gantt_tasks_${templateId}`, JSON.stringify(templateTasks));
+          });
+          localStorage.setItem('gantt_theme', JSON.stringify(cloudState.theme));
+          localStorage.setItem('gantt_lang', JSON.stringify(cloudState.lang));
+          localStorage.setItem('gantt_show_onboarding', JSON.stringify(cloudState.showOnboarding));
+          localStorage.setItem('gantt_custom_templates', JSON.stringify(cloudState.customTemplates));
+          localStorage.setItem('gantt_active_template_id', JSON.stringify(cloudState.activeTemplateId));
+
+          const restoredTemplates = [...DEFAULT_TEMPLATES, ...cloudState.customTemplates];
+          const fallbackTemplate = restoredTemplates[0];
+          const restoredTemplateId = restoredTemplates.some(t => t.id === cloudState.activeTemplateId)
+            ? cloudState.activeTemplateId
+            : fallbackTemplate.id;
+          const restoredTasks = cloudState.tasksByTemplate[restoredTemplateId]
+            ?? restoredTemplates.find(t => t.id === restoredTemplateId)?.tasks
+            ?? fallbackTemplate.tasks;
+
+          setTheme(cloudState.theme);
+          setLang(cloudState.lang);
+          setShowOnboarding(cloudState.showOnboarding);
+          setCustomTemplates(cloudState.customTemplates);
+          setActiveTemplateId(restoredTemplateId);
+          setTasks(restoredTasks);
+          setTasksTemplateId(restoredTemplateId);
+        } else {
+          const initial = initialLocalStateRef.current;
+          const localTemplates = [...DEFAULT_TEMPLATES, ...initial.customTemplates];
+          const tasksByTemplate = Object.fromEntries(
+            localTemplates.map(template => {
+              const stored = getLocalStorage<Task[] | null>(`gantt_tasks_${template.id}`, null);
+              return [template.id, stored ?? template.tasks];
+            }),
+          );
+          const localState: CloudAppState = {
+            version: 1,
+            theme: initial.theme,
+            lang: initial.lang,
+            showOnboarding: initial.showOnboarding,
+            customTemplates: initial.customTemplates,
+            activeTemplateId: initial.activeTemplateId,
+            tasksByTemplate,
+          };
+          await saveCloudState(userId, localState);
+          if (cancelled) return;
+        }
+
+        cloudHydratedRef.current = true;
+        setCloudStatus('synced');
+      } catch (error) {
+        console.error('Cloud memory initialization failed', error);
+        if (!cancelled) setCloudStatus('error');
+      }
+    };
+
+    void hydrateCloudMemory();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Debounce writes so rapid task edits become one atomic cloud update.
+  useEffect(() => {
+    const userId = cloudUserIdRef.current;
+    if (!cloudHydratedRef.current || !userId || tasksTemplateId !== activeTemplateId) return;
+
+    if (cloudSaveTimerRef.current !== null) {
+      window.clearTimeout(cloudSaveTimerRef.current);
+    }
+
+    setCloudStatus('saving');
+    cloudSaveTimerRef.current = window.setTimeout(() => {
+      const templates = [...DEFAULT_TEMPLATES, ...customTemplates];
+      const tasksByTemplate = Object.fromEntries(
+        templates.map(template => {
+          if (template.id === activeTemplateId) return [template.id, tasks];
+          const stored = getLocalStorage<Task[] | null>(`gantt_tasks_${template.id}`, null);
+          return [template.id, stored ?? template.tasks];
+        }),
+      );
+      const nextState: CloudAppState = {
+        version: 1,
+        theme,
+        lang,
+        showOnboarding,
+        customTemplates,
+        activeTemplateId,
+        tasksByTemplate,
+      };
+
+      void saveCloudState(userId, nextState)
+        .then(() => setCloudStatus('synced'))
+        .catch((error) => {
+          console.error('Cloud memory save failed', error);
+          setCloudStatus('error');
+        });
+    }, 700);
+
+    return () => {
+      if (cloudSaveTimerRef.current !== null) {
+        window.clearTimeout(cloudSaveTimerRef.current);
+      }
+    };
+  }, [activeTemplateId, customTemplates, lang, showOnboarding, tasks, tasksTemplateId, theme]);
 
   // Toast notifier helper
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
@@ -844,6 +987,24 @@ function App() {
             </div>
 
             <div className="controls-group">
+              <button
+                className={`btn-icon cloud-sync-status cloud-sync-${cloudStatus}`}
+                disabled
+                title={
+                  cloudStatus === 'synced'
+                    ? (lang === 'uk' ? 'Збережено у Supabase' : 'Saved to Supabase')
+                    : cloudStatus === 'saving'
+                      ? (lang === 'uk' ? 'Збереження у Supabase…' : 'Saving to Supabase…')
+                      : cloudStatus === 'error'
+                        ? (lang === 'uk' ? 'Хмарна пам’ять недоступна' : 'Cloud memory unavailable')
+                        : (lang === 'uk' ? 'Підключення до Supabase…' : 'Connecting to Supabase…')
+                }
+              >
+                {cloudStatus === 'synced' && <Cloud size={16} />}
+                {(cloudStatus === 'connecting' || cloudStatus === 'saving') && <LoaderCircle size={16} />}
+                {cloudStatus === 'error' && <CloudOff size={16} />}
+              </button>
+
               {/* Theme Toggle */}
               <button 
                 className="btn-icon" 
