@@ -939,10 +939,17 @@ function App() {
   const activeTasks = tasks.filter(task => !task.archived);
   const archivedTasks = tasks.filter(task => task.archived);
   const filteredTasks = activeTasks.filter(t => {
-    const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          t.assignee.toLowerCase().includes(searchQuery.toLowerCase());
+    const normalizedQuery = searchQuery.toLowerCase();
+    const matchesSearch = t.title.toLowerCase().includes(normalizedQuery) ||
+                          t.assignee.toLowerCase().includes(normalizedQuery) ||
+                          t.subtasks.some(subtask =>
+                            subtask.title.toLowerCase().includes(normalizedQuery) ||
+                            (subtask.assignee ?? '').toLowerCase().includes(normalizedQuery)
+                          );
     const matchesAssignee = filterAssignee === 'all'
-      || (filterAssignee === '__unassigned__' ? !t.assignee : t.assignee === filterAssignee);
+      || (filterAssignee === '__unassigned__'
+        ? !t.assignee || t.subtasks.some(subtask => !subtask.assignee)
+        : t.assignee === filterAssignee || t.subtasks.some(subtask => subtask.assignee === filterAssignee));
     const matchesStatus = filterStatus === 'all' || t.status === filterStatus;
     return matchesSearch && matchesAssignee && matchesStatus;
   });

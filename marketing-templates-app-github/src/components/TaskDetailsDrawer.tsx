@@ -123,7 +123,8 @@ export default function TaskDetailsDrawer({
     const newSub: SubTask = {
       id: `sub_${Date.now()}`,
       title: newSubtaskTitle.trim(),
-      completed: false
+      completed: false,
+      status: 'todo',
     };
 
     handleFieldChange('subtasks', [...(task.subtasks || []), newSub]);
@@ -132,7 +133,9 @@ export default function TaskDetailsDrawer({
 
   const handleToggleSubtask = (subId: string) => {
     const updated = task.subtasks.map(s => 
-      s.id === subId ? { ...s, completed: !s.completed } : s
+      s.id === subId
+        ? { ...s, completed: !s.completed, status: !s.completed ? 'done' as const : 'todo' as const }
+        : s
     );
     handleFieldChange('subtasks', updated);
   };
@@ -411,6 +414,23 @@ export default function TaskDetailsDrawer({
                   
                   {/* Scheduling Sub-row */}
                   <div style={{ display: 'flex', gap: '6px', paddingLeft: '22px', alignItems: 'center' }}>
+                    <select
+                      className="subtask-status-select"
+                      value={s.status ?? (s.completed ? 'done' : 'todo')}
+                      title={lang === 'uk' ? 'Статус підзавдання' : 'Subtask status'}
+                      onChange={(event) => {
+                        const status = event.target.value as NonNullable<SubTask['status']>;
+                        const updated = task.subtasks.map(sub =>
+                          sub.id === s.id ? { ...sub, status, completed: status === 'done' } : sub
+                        );
+                        handleFieldChange('subtasks', updated);
+                      }}
+                    >
+                      <option value="todo">{getTranslation(lang, 'todo')}</option>
+                      <option value="in_progress">{getTranslation(lang, 'in_progress')}</option>
+                      <option value="in_review">{getTranslation(lang, 'in_review')}</option>
+                      <option value="done">{getTranslation(lang, 'done')}</option>
+                    </select>
                     <input 
                       type="date" 
                       style={{ padding: '2px 4px', fontSize: '0.72rem', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)', borderRadius: '4px', color: 'var(--text-primary)' }}

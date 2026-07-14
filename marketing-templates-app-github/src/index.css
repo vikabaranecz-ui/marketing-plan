@@ -1527,6 +1527,89 @@ textarea:focus-visible {
 }
 
 /* Kanban Board */
+.kanban-workspace {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.kanban-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 24px 0;
+}
+
+.kanban-mode-switch {
+  display: inline-flex;
+  padding: 4px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-hover);
+}
+
+.kanban-mode-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.kanban-mode-switch button.active {
+  background: var(--bg-sidebar);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.kanban-mode-switch button > span {
+  display: grid;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--primary-light);
+  color: var(--primary);
+  font-size: 0.66rem;
+}
+
+.kanban-parent-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.kanban-parent-picker select,
+.kanban-status-select,
+.subtask-status-select {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sidebar);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.kanban-parent-picker select {
+  max-width: 260px;
+  padding: 7px 9px;
+  font: inherit;
+}
+
 .kanban-container {
   display: flex;
   gap: 16px;
@@ -1534,6 +1617,10 @@ textarea:focus-visible {
   flex: 1;
   overflow: auto;
   min-height: 0;
+}
+
+.kanban-container-expanded {
+  padding-top: 16px;
 }
 
 .kanban-column {
@@ -1610,6 +1697,21 @@ textarea:focus-visible {
   box-shadow: var(--shadow-sm);
 }
 
+.kanban-task-card,
+.kanban-subtask-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.kanban-task-card::before,
+.kanban-subtask-card::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--card-accent);
+  content: '';
+}
+
 .theme-dark .kanban-card {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
@@ -1643,6 +1745,16 @@ textarea:focus-visible {
   overflow-wrap: anywhere;
 }
 
+.card-title.completed {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.milestone-symbol {
+  margin-right: 4px;
+  color: var(--danger);
+}
+
 .card-date {
   font-size: 0.72rem;
   color: var(--text-muted);
@@ -1661,6 +1773,54 @@ textarea:focus-visible {
   justify-content: space-between;
   align-items: center;
   margin-top: 4px;
+}
+
+.kanban-card-footer-expanded {
+  gap: 8px;
+}
+
+.kanban-card-footer-expanded .assignee-badge {
+  min-width: 0;
+}
+
+.kanban-card-footer-expanded .assignee-badge span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kanban-status-select {
+  max-width: 112px;
+  padding: 4px 6px;
+  font-size: 0.67rem;
+  cursor: pointer;
+}
+
+.kanban-subtask-summary {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-size: 0.71rem;
+}
+
+.kanban-parent-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kanban-parent-label > span {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
 }
 
 .card-progress-label {
@@ -1692,6 +1852,37 @@ textarea:focus-visible {
 .kanban-footer .btn {
   width: 100%;
   justify-content: flex-start;
+}
+
+.kanban-inline-composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 6px;
+}
+
+.kanban-inline-composer input {
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sidebar);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.75rem;
+  outline: none;
+}
+
+.kanban-inline-composer input:focus,
+.kanban-parent-picker select:focus,
+.kanban-status-select:focus,
+.subtask-status-select:focus {
+  border-color: var(--primary);
+}
+
+.subtask-status-select {
+  max-width: 108px;
+  padding: 2px 4px;
+  font-size: 0.69rem;
 }
 
 /* Custom Gantt Timeline Grid */
@@ -3168,6 +3359,22 @@ textarea:focus-visible {
   .kanban-container,
   .workload-container {
     padding: 16px;
+  }
+
+  .kanban-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 14px 16px 0;
+  }
+
+  .kanban-parent-picker {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .kanban-parent-picker select {
+    max-width: none;
+    width: 100%;
   }
 
   .content-area {

@@ -5,6 +5,7 @@ export interface SubTask {
   startDate?: string; // YYYY-MM-DD
   endDate?: string;   // YYYY-MM-DD
   assignee?: string;
+  status?: 'todo' | 'in_progress' | 'in_review' | 'done';
 }
 
 export interface TaskComment {
