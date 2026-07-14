@@ -156,6 +156,7 @@ export default function GanttChart({
             isSubtask: true,
             parentId: t.id,
             subtaskId: sub.id,
+            color: t.color,
             assignee: sub.assignee || t.assignee
           });
         });
@@ -925,7 +926,7 @@ export default function GanttChart({
                       height: '24px',
                       top: '12px',
                       backgroundColor: `${item.color || '#6366f1'}22`,
-                      border: isSelected ? '2px solid var(--primary)' : `1px solid ${item.color || 'var(--primary)'}`,
+                      border: `${isSelected ? 2 : 1}px solid ${item.color || 'var(--primary)'}`,
                       borderRadius: '6px',
                       boxShadow: 'none',
                       display: 'flex',
