@@ -1033,6 +1033,8 @@ function App() {
             assignee: task.assignee,
             status: task.status,
             isSubtask: false,
+            startDate: task.startDate,
+            endDate: task.endDate,
           }]
         : [];
       const subtaskItems = task.subtasks
@@ -1048,6 +1050,8 @@ function App() {
           assignee: subtask.assignee ?? task.assignee,
           status: subtask.status ?? (subtask.completed ? 'done' as const : 'todo' as const),
           isSubtask: true,
+          startDate: subtask.startDate ?? task.startDate,
+          endDate: subtask.endDate ?? task.endDate,
         }));
       return [...taskItems, ...subtaskItems];
     });
@@ -1849,6 +1853,7 @@ function App() {
       <TodayPanel
         groups={todayPlanGroups}
         lang={lang}
+        referenceDate={today}
         onOpenPlan={handleOpenTodayPlan}
         onOpenTask={handleOpenTodayTask}
       />

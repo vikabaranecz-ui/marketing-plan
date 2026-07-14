@@ -3162,6 +3162,20 @@ textarea:focus-visible {
   font-size: 0.66rem;
 }
 
+.today-item-deadline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 5px;
+  color: var(--primary);
+  font-size: 0.64rem;
+  font-weight: 700;
+}
+
+.today-item-deadline.overdue {
+  color: var(--danger);
+}
+
 .today-status {
   padding: 4px 6px;
   border-radius: 999px;

@@ -1,4 +1,5 @@
-import { CalendarCheck, CheckCircle2, ChevronDown, ChevronUp, ExternalLink, ListChecks } from 'lucide-react';
+import { useState } from 'react';
+import { CalendarCheck, CalendarClock, CheckCircle2, ChevronDown, ChevronUp, ExternalLink, ListChecks } from 'lucide-react';
 import type { Language, Task } from '../types';
 
 export interface TodayItem {
@@ -8,6 +9,8 @@ export interface TodayItem {
   assignee: string;
   status: Task['status'];
   isSubtask: boolean;
+  startDate: string;
+  endDate: string;
 }
 
 export interface TodayPlanGroup {
@@ -20,6 +23,7 @@ export interface TodayPlanGroup {
 interface TodayPanelProps {
   groups: TodayPlanGroup[];
   lang: Language;
+  referenceDate: string;
   onOpenPlan: (planId: string) => void;
   onOpenTask: (planId: string, taskId: string) => void;
 }
@@ -39,7 +43,33 @@ const statusLabels = {
   },
 };
 
-export default function TodayPanel({ groups, lang, onOpenPlan, onOpenTask }: TodayPanelProps) {
+const getDayDifference = (date: string, referenceDate: string) => {
+  const toUtcDay = (value: string) => {
+    const [year, month, day] = value.split('-').map(Number);
+    return Date.UTC(year, month - 1, day);
+  };
+  return Math.round((toUtcDay(date) - toUtcDay(referenceDate)) / 86_400_000);
+};
+
+const formatDate = (date: string, lang: Language) => {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Intl.DateTimeFormat(lang === 'uk' ? 'uk-UA' : 'en-US', {
+    day: 'numeric',
+    month: 'long',
+  }).format(new Date(year, month - 1, day));
+};
+
+const getDeadlineLabel = (endDate: string, referenceDate: string, lang: Language) => {
+  const difference = getDayDifference(endDate, referenceDate);
+  const dateLabel = formatDate(endDate, lang);
+
+  if (difference < 0) return lang === 'uk' ? `Прострочено · ${dateLabel}` : `Overdue · ${dateLabel}`;
+  if (difference === 0) return lang === 'uk' ? `До сьогодні · ${dateLabel}` : `Due today · ${dateLabel}`;
+  if (difference === 1) return lang === 'uk' ? `До завтра · ${dateLabel}` : `Due tomorrow · ${dateLabel}`;
+  return lang === 'uk' ? `До ${dateLabel}` : `Due ${dateLabel}`;
+};
+
+export default function TodayPanel({ groups, lang, referenceDate, onOpenPlan, onOpenTask }: TodayPanelProps) {
   const [isOpen, setIsOpen] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('gantt_today_panel_open');
@@ -105,6 +135,10 @@ export default function TodayPanel({ groups, lang, onOpenPlan, onOpenTask }: Tod
                         {item.isSubtask ? (lang === 'uk' ? 'Підзавдання' : 'Subtask') : (lang === 'uk' ? 'Завдання' : 'Task')}
                         {' · '}{item.assignee || (lang === 'uk' ? 'Без виконавця' : 'Unassigned')}
                       </small>
+                      <span className={`today-item-deadline ${item.endDate < referenceDate ? 'overdue' : ''}`}>
+                        <CalendarClock size={12} />
+                        {getDeadlineLabel(item.endDate, referenceDate, lang)}
+                      </span>
                     </span>
                     <span className={`today-status today-status-${item.status}`}>{statusLabels[lang][item.status]}</span>
                   </button>
@@ -123,4 +157,3 @@ export default function TodayPanel({ groups, lang, onOpenPlan, onOpenTask }: Tod
     </aside>
   );
 }
-import { useState } from 'react';
