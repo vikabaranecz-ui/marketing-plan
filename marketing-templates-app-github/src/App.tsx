@@ -60,6 +60,9 @@ function App() {
   const [customTemplates, setCustomTemplates] = useState<MarketingTemplate[]>(() => 
     getLocalStorage<MarketingTemplate[]>('gantt_custom_templates', [])
   );
+  const [hiddenDefaultTemplateIds, setHiddenDefaultTemplateIds] = useState<string[]>(() =>
+    getLocalStorage<string[]>('gantt_hidden_default_templates', [])
+  );
   
   // Active Project Plan id
   const [activeTemplateId, setActiveTemplateId] = useState<string>(() => 
@@ -78,6 +81,7 @@ function App() {
     lang,
     showOnboarding,
     customTemplates,
+    hiddenDefaultTemplateIds,
     activeTemplateId,
   });
   
@@ -137,12 +141,15 @@ function App() {
     } else {
       document.documentElement.classList.remove('theme-dark');
     }
-    localStorage.setItem('gantt_theme', theme);
+    localStorage.setItem('gantt_theme', JSON.stringify(theme));
   }, [theme]);
 
   // Combine Default & Custom plans
-  const allTemplates = [...DEFAULT_TEMPLATES, ...customTemplates];
-  const activeTemplate = allTemplates.find(t => t.id === activeTemplateId) || DEFAULT_TEMPLATES[0];
+  const visibleDefaultTemplates = DEFAULT_TEMPLATES.filter(
+    template => !hiddenDefaultTemplateIds.includes(template.id),
+  );
+  const allTemplates = [...visibleDefaultTemplates, ...customTemplates];
+  const activeTemplate = allTemplates.find(t => t.id === activeTemplateId) || allTemplates[0] || DEFAULT_TEMPLATES[0];
 
   // Load tasks when activeTemplateId changes
   useEffect(() => {
@@ -174,9 +181,13 @@ function App() {
     localStorage.setItem('gantt_custom_templates', JSON.stringify(customTemplates));
   }, [customTemplates]);
 
+  useEffect(() => {
+    localStorage.setItem('gantt_hidden_default_templates', JSON.stringify(hiddenDefaultTemplateIds));
+  }, [hiddenDefaultTemplateIds]);
+
   // Save Language changes
   useEffect(() => {
-    localStorage.setItem('gantt_lang', lang);
+    localStorage.setItem('gantt_lang', JSON.stringify(lang));
   }, [lang]);
 
   useEffect(() => {
@@ -204,10 +215,15 @@ function App() {
           localStorage.setItem('gantt_lang', JSON.stringify(cloudState.lang));
           localStorage.setItem('gantt_show_onboarding', JSON.stringify(cloudState.showOnboarding));
           localStorage.setItem('gantt_custom_templates', JSON.stringify(cloudState.customTemplates));
+          const restoredHiddenDefaultTemplateIds = cloudState.hiddenDefaultTemplateIds ?? [];
+          localStorage.setItem('gantt_hidden_default_templates', JSON.stringify(restoredHiddenDefaultTemplateIds));
           localStorage.setItem('gantt_active_template_id', JSON.stringify(cloudState.activeTemplateId));
 
-          const restoredTemplates = [...DEFAULT_TEMPLATES, ...cloudState.customTemplates];
-          const fallbackTemplate = restoredTemplates[0];
+          const restoredTemplates = [
+            ...DEFAULT_TEMPLATES.filter(template => !restoredHiddenDefaultTemplateIds.includes(template.id)),
+            ...cloudState.customTemplates,
+          ];
+          const fallbackTemplate = restoredTemplates[0] ?? DEFAULT_TEMPLATES[0];
           const restoredTemplateId = restoredTemplates.some(t => t.id === cloudState.activeTemplateId)
             ? cloudState.activeTemplateId
             : fallbackTemplate.id;
@@ -219,12 +235,16 @@ function App() {
           setLang(cloudState.lang);
           setShowOnboarding(cloudState.showOnboarding);
           setCustomTemplates(cloudState.customTemplates);
+          setHiddenDefaultTemplateIds(restoredHiddenDefaultTemplateIds);
           setActiveTemplateId(restoredTemplateId);
           setTasks(restoredTasks);
           setTasksTemplateId(restoredTemplateId);
         } else {
           const initial = initialLocalStateRef.current;
-          const localTemplates = [...DEFAULT_TEMPLATES, ...initial.customTemplates];
+          const localTemplates = [
+            ...DEFAULT_TEMPLATES.filter(template => !initial.hiddenDefaultTemplateIds.includes(template.id)),
+            ...initial.customTemplates,
+          ];
           const tasksByTemplate = Object.fromEntries(
             localTemplates.map(template => {
               const stored = getLocalStorage<Task[] | null>(`gantt_tasks_${template.id}`, null);
@@ -237,6 +257,7 @@ function App() {
             lang: initial.lang,
             showOnboarding: initial.showOnboarding,
             customTemplates: initial.customTemplates,
+            hiddenDefaultTemplateIds: initial.hiddenDefaultTemplateIds,
             activeTemplateId: initial.activeTemplateId,
             tasksByTemplate,
           };
@@ -269,7 +290,10 @@ function App() {
 
     setCloudStatus('saving');
     cloudSaveTimerRef.current = window.setTimeout(() => {
-      const templates = [...DEFAULT_TEMPLATES, ...customTemplates];
+      const templates = [
+        ...DEFAULT_TEMPLATES.filter(template => !hiddenDefaultTemplateIds.includes(template.id)),
+        ...customTemplates,
+      ];
       const tasksByTemplate = Object.fromEntries(
         templates.map(template => {
           if (template.id === activeTemplateId) return [template.id, tasks];
@@ -283,6 +307,7 @@ function App() {
         lang,
         showOnboarding,
         customTemplates,
+        hiddenDefaultTemplateIds,
         activeTemplateId,
         tasksByTemplate,
       };
@@ -300,7 +325,7 @@ function App() {
         window.clearTimeout(cloudSaveTimerRef.current);
       }
     };
-  }, [activeTemplateId, customTemplates, lang, showOnboarding, tasks, tasksTemplateId, theme]);
+  }, [activeTemplateId, customTemplates, hiddenDefaultTemplateIds, lang, showOnboarding, tasks, tasksTemplateId, theme]);
 
   // Toast notifier helper
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
@@ -607,28 +632,33 @@ function App() {
     showToast(lang === 'uk' ? 'План успішно здубльовано!' : 'Plan successfully duplicated!', 'success');
   };
 
-  // 3. DELETE Project Plan (Custom Only)
+  // 3. DELETE Project Plan
   const handleDeletePlan = (templateId: string) => {
-    const isDefault = DEFAULT_TEMPLATES.some(t => t.id === templateId);
-    if (isDefault) {
-      alert(getTranslation(lang, 'cannotDeleteDefault'));
+    if (allTemplates.length <= 1) {
+      alert(lang === 'uk' ? 'Не можна видалити останній шаблон.' : 'You cannot delete the last template.');
       return;
     }
 
-    const template = customTemplates.find(t => t.id === templateId);
+    const defaultTemplate = DEFAULT_TEMPLATES.find(t => t.id === templateId);
+    const template = defaultTemplate ?? customTemplates.find(t => t.id === templateId);
     if (!template) return;
 
     const templateTitle = lang === 'uk' ? template.titleUa : template.titleEn;
     const confirmDel = confirm(`${getTranslation(lang, 'confirmDeletePlan')}\n\n${templateTitle}`);
     if (!confirmDel) return;
 
-    setCustomTemplates(prev => prev.filter(t => t.id !== templateId));
+    if (defaultTemplate) {
+      setHiddenDefaultTemplateIds(prev => prev.includes(templateId) ? prev : [...prev, templateId]);
+    } else {
+      setCustomTemplates(prev => prev.filter(t => t.id !== templateId));
+    }
     localStorage.removeItem(`gantt_tasks_${templateId}`);
 
     if (activeTemplateId === templateId) {
-      setActiveTemplateId('campaign-plan');
+      const nextTemplate = allTemplates.find(t => t.id !== templateId);
+      if (nextTemplate) setActiveTemplateId(nextTemplate.id);
     }
-    showToast(lang === 'uk' ? 'Проект видалено' : 'Plan deleted', 'success');
+    showToast(lang === 'uk' ? 'Шаблон видалено' : 'Template deleted', 'success');
   };
 
   const handleDeleteActivePlan = () => handleDeletePlan(activeTemplateId);
@@ -785,8 +815,6 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const isDefaultTemplate = DEFAULT_TEMPLATES.some(t => t.id === activeTemplateId);
-
   return (
     <div className="app-container">
       {/* Sidebar Navigation */}
@@ -807,20 +835,29 @@ function App() {
             </h3>
             {templatesExpanded && (
               <div className="template-list">
-                {DEFAULT_TEMPLATES.map(t => (
-                  <button
-                    key={t.id}
-                    className={`template-item ${activeTemplateId === t.id ? 'active' : ''}`}
-                    onClick={() => handleTemplateSelect(t.id)}
-                  >
-                    <div className="template-icon-wrapper">
-                      {renderTemplateIcon(t.iconName)}
-                    </div>
-                    <div className="template-details">
-                      <h4>{lang === 'uk' ? t.titleUa : t.titleEn}</h4>
-                      <span>{lang === 'uk' ? t.categoryUa : t.categoryEn}</span>
-                    </div>
-                  </button>
+                {visibleDefaultTemplates.map(t => (
+                  <div className="template-row" key={t.id}>
+                    <button
+                      className={`template-item ${activeTemplateId === t.id ? 'active' : ''}`}
+                      onClick={() => handleTemplateSelect(t.id)}
+                    >
+                      <div className="template-icon-wrapper">
+                        {renderTemplateIcon(t.iconName)}
+                      </div>
+                      <div className="template-details">
+                        <h4>{lang === 'uk' ? t.titleUa : t.titleEn}</h4>
+                        <span>{lang === 'uk' ? t.categoryUa : t.categoryEn}</span>
+                      </div>
+                    </button>
+                    <button
+                      className="template-delete-btn"
+                      onClick={() => handleDeletePlan(t.id)}
+                      title={getTranslation(lang, 'deletePlan')}
+                      aria-label={`${getTranslation(lang, 'deletePlan')}: ${lang === 'uk' ? t.titleUa : t.titleEn}`}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -844,7 +881,7 @@ function App() {
             {customExpanded && (
               <div className="template-list">
                 {customTemplates.map(t => (
-                  <div className="custom-template-row" key={t.id}>
+                  <div className="template-row" key={t.id}>
                     <button
                       className={`template-item ${activeTemplateId === t.id ? 'active' : ''}`}
                       onClick={() => handleTemplateSelect(t.id)}
@@ -885,7 +922,7 @@ function App() {
               <span>{lang === 'uk' ? 'Дублювати' : 'Duplicate'}</span>
             </button>
             
-            {!isDefaultTemplate && (
+            {allTemplates.length > 1 && (
               <button className="btn btn-danger btn-square" onClick={handleDeleteActivePlan} title={getTranslation(lang, 'deletePlan')}>
                 <Trash2 size={14} />
               </button>

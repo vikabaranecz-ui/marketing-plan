@@ -23,6 +23,7 @@ export interface CloudAppState {
   lang: Language;
   showOnboarding: boolean;
   customTemplates: MarketingTemplate[];
+  hiddenDefaultTemplateIds: string[];
   activeTemplateId: string;
   tasksByTemplate: Record<string, Task[]>;
 }
@@ -36,6 +37,9 @@ export const isCloudAppState = (value: unknown): value is CloudAppState => {
     (state.lang === 'uk' || state.lang === 'en') &&
     typeof state.showOnboarding === 'boolean' &&
     Array.isArray(state.customTemplates) &&
+    (state.hiddenDefaultTemplateIds === undefined ||
+      (Array.isArray(state.hiddenDefaultTemplateIds) &&
+        state.hiddenDefaultTemplateIds.every(id => typeof id === 'string'))) &&
     typeof state.activeTemplateId === 'string' &&
     !!state.tasksByTemplate &&
     typeof state.tasksByTemplate === 'object'
