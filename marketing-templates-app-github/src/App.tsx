@@ -5,7 +5,7 @@ import {
   Sun, Moon, Copy, Trash2, Info, X, ChevronDown, ChevronRight,
   Menu, Eye, EyeOff, Table, Users, Cloud, CloudOff, LoaderCircle, Pencil,
   Archive, CalendarRange, MoreHorizontal, SlidersHorizontal, FolderOpen, LogOut, CircleUserRound,
-  Share2, Lock, UserPlus, Shield
+  Share2, Lock, UserPlus, Shield, Smartphone
 } from 'lucide-react';
 import './App.css';
 import type { Task, MarketingTemplate, ActiveTab, ZoomLevel, Language, TeamMember } from './types';
@@ -58,6 +58,11 @@ interface AppProps {
   onSignOut: () => Promise<void>;
 }
 
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+}
+
 function App({ accountEmail, onSignOut }: AppProps) {
   // Theme & Language Settings
   const [theme, setTheme] = useState<'light' | 'dark'>(() => getLocalStorage<'light' | 'dark'>('gantt_theme', 'light'));
@@ -102,6 +107,8 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const [newMemberEmail, setNewMemberEmail] = useState('');
   const [newMemberAccess, setNewMemberAccess] = useState<Exclude<TeamRole, 'owner'>>('editor');
   const [isCollaborationBusy, setIsCollaborationBusy] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isInstalledApp, setIsInstalledApp] = useState(() => window.matchMedia('(display-mode: standalone)').matches);
   const [planNameOverrides, setPlanNameOverrides] = useState<Record<string, string>>(() =>
     getLocalStorage<Record<string, string>>('gantt_plan_name_overrides', {})
   );
@@ -183,6 +190,36 @@ function App({ accountEmail, onSignOut }: AppProps) {
     }
     localStorage.setItem('gantt_theme', JSON.stringify(theme));
   }, [theme]);
+
+  useEffect(() => {
+    const handleInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as BeforeInstallPromptEvent);
+    };
+    const handleInstalled = () => {
+      setInstallPrompt(null);
+      setIsInstalledApp(true);
+    };
+    window.addEventListener('beforeinstallprompt', handleInstallPrompt);
+    window.addEventListener('appinstalled', handleInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleInstallPrompt);
+      window.removeEventListener('appinstalled', handleInstalled);
+    };
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (installPrompt) {
+      await installPrompt.prompt();
+      const choice = await installPrompt.userChoice;
+      if (choice.outcome === 'accepted') setInstallPrompt(null);
+      return;
+    }
+    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    alert(isIos
+      ? 'На iPhone натисніть «Поділитися» → «На початковий екран».'
+      : 'Відкрийте меню браузера та виберіть «Встановити додаток» або «Додати на головний екран».');
+  };
 
   // Combine Default & Custom plans
   const visibleDefaultTemplates = DEFAULT_TEMPLATES.filter(
@@ -1296,7 +1333,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
       {/* Sidebar Navigation */}
       <aside className={`sidebar ${showMainSidebar ? '' : 'collapsed'}`}>
         <div className="sidebar-brand">
-          <div className="brand-icon">G</div>
+          <img className="brand-icon brand-icon-image" src="/icons/marketing-plan-192.png" alt="" />
           <div className="brand-info">
             <h2>{getTranslation(lang, 'appTitle')}</h2>
             <p>{getTranslation(lang, 'appSubtitle')}</p>
@@ -1745,6 +1782,17 @@ function App({ accountEmail, onSignOut }: AppProps) {
                 </button>
               </div>
 
+              {!isInstalledApp && (
+                <button
+                  className="btn-icon install-app-button"
+                  onClick={() => void handleInstallApp()}
+                  title={lang === 'uk' ? 'Встановити як додаток' : 'Install app'}
+                  aria-label={lang === 'uk' ? 'Встановити як додаток' : 'Install app'}
+                >
+                  <Smartphone size={16} />
+                </button>
+              )}
+
               {/* Theme Toggle */}
               <button 
                 className="btn-icon" 
@@ -2083,6 +2131,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
               <button onClick={() => { setIsMobileMenuOpen(false); setIsResetConfirmOpen(true); }}><RotateCcw size={19} /><span>{lang === 'uk' ? 'Скинути' : 'Reset'}</span></button>
               <button onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')}>{theme === 'light' ? <Moon size={19} /> : <Sun size={19} />}<span>{lang === 'uk' ? 'Тема' : 'Theme'}</span></button>
               <button onClick={() => setLang(value => value === 'uk' ? 'en' : 'uk')}><Languages size={19} /><span>{lang === 'uk' ? 'Мова' : 'Language'}</span></button>
+              {!isInstalledApp && <button onClick={() => { setIsMobileMenuOpen(false); void handleInstallApp(); }}><Smartphone size={19} /><span>{lang === 'uk' ? 'Встановити' : 'Install'}</span></button>}
               <button onClick={handleExportJSON}><Download size={19} /><span>JSON</span></button>
               <button onClick={handleExportCSV}><FileText size={19} /><span>CSV</span></button>
               <button onClick={() => fileInputRef.current?.click()}><Upload size={19} /><span>{lang === 'uk' ? 'Імпорт' : 'Import'}</span></button>

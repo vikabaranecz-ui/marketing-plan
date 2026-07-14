@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import type { User } from '@supabase/supabase-js';
-import { ArrowRight, CheckCircle2, Cloud, KeyRound, LoaderCircle, LockKeyhole, Mail, ShieldCheck } from 'lucide-react';
+import { ArrowRight, CheckCircle2, KeyRound, LoaderCircle, LockKeyhole, Mail, ShieldCheck } from 'lucide-react';
 import { DEFAULT_TEMPLATES, TEAM_MEMBERS } from '../data/templatesData';
 import {
   loadCloudState,
@@ -180,7 +180,7 @@ export default function AuthGate({ children }: AuthGateProps) {
   return (
     <main className="auth-screen">
       <section className="auth-card">
-        <div className="auth-brand"><Cloud size={22} /><span>Marketing Workspace</span></div>
+        <div className="auth-brand"><img src="/icons/marketing-plan-192.png" alt="" /><span>Marketing Workspace</span></div>
         {sentTo ? (
           <div className="auth-confirmation">
             <span className="auth-success-icon"><CheckCircle2 size={28} /></span>
@@ -229,6 +229,9 @@ export default function AuthGate({ children }: AuthGateProps) {
                     />
                   </div>
                 </>
+              )}
+              {usePassword && !isSignUp && (
+                <div className="auth-remember-note"><CheckCircle2 size={15} />Вхід буде збережено на цьому пристрої</div>
               )}
               {errorMessage && <div className="auth-error">{errorMessage}</div>}
               <button className="auth-submit" disabled={isSending}>

@@ -132,6 +132,14 @@ body {
   text-transform: uppercase;
 }
 
+.auth-brand img {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  object-fit: cover;
+  box-shadow: 0 5px 14px rgba(15, 23, 42, 0.18);
+}
+
 .auth-eyebrow {
   margin: 0 0 7px;
   color: var(--primary);
@@ -247,6 +255,22 @@ body {
 .auth-security-note svg,
 .auth-migration-note svg {
   flex: 0 0 auto;
+}
+
+.auth-security-note span,
+.auth-migration-note {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.auth-remember-note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 3px;
+  color: #047857;
+  font-size: 0.72rem;
+  font-weight: 650;
 }
 
 .auth-error {
@@ -463,6 +487,17 @@ textarea:focus-visible {
   font-weight: bold;
   font-size: 1.2rem;
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.brand-icon-image {
+  object-fit: cover;
+  border: 0;
+}
+
+.install-app-button {
+  border-color: rgba(99, 102, 241, 0.24) !important;
+  background: var(--primary-light) !important;
+  color: var(--primary) !important;
 }
 
 .brand-info h2 {

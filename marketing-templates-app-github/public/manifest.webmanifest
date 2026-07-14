@@ -1,0 +1,26 @@
+{
+  "name": "Marketing Plan — командний планувальник",
+  "short_name": "Marketing Plan",
+  "description": "Приватні та командні маркетингові плани, задачі, прогрес і коментарі.",
+  "lang": "uk",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f1f5f9",
+  "theme_color": "#6366f1",
+  "icons": [
+    {
+      "src": "/icons/marketing-plan-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/marketing-plan-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
