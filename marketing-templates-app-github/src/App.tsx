@@ -3,7 +3,8 @@ import {
   Megaphone, Globe, Compass, BookOpen, Calendar, Search, Plus, 
   Download, Upload, Languages, RotateCcw, FileText, AlertTriangle,
   Sun, Moon, Copy, Trash2, Info, X, ChevronDown, ChevronRight,
-  Menu, Eye, EyeOff, Table, Users, Cloud, CloudOff, LoaderCircle, Pencil
+  Menu, Eye, EyeOff, Table, Users, Cloud, CloudOff, LoaderCircle, Pencil,
+  Archive, CalendarRange
 } from 'lucide-react';
 import './App.css';
 import type { Task, MarketingTemplate, ActiveTab, ZoomLevel, Language, TeamMember } from './types';
@@ -15,6 +16,7 @@ import GridView from './components/GridView';
 import KanbanBoard from './components/KanbanBoard';
 import WorkloadView from './components/WorkloadView';
 import TaskDetailsDrawer from './components/TaskDetailsDrawer';
+import PlansCalendarView, { type PlanCalendarItem } from './components/PlansCalendarView';
 import {
   ensureCloudUser,
   loadCloudState,
@@ -69,6 +71,9 @@ function App() {
   const [planNameOverrides, setPlanNameOverrides] = useState<Record<string, string>>(() =>
     getLocalStorage<Record<string, string>>('gantt_plan_name_overrides', {})
   );
+  const [archivedPlanIds, setArchivedPlanIds] = useState<string[]>(() =>
+    getLocalStorage<string[]>('gantt_archived_plan_ids', [])
+  );
   
   // Active Project Plan id
   const [activeTemplateId, setActiveTemplateId] = useState<string>(() => 
@@ -90,12 +95,14 @@ function App() {
     hiddenDefaultTemplateIds,
     teamMembers,
     planNameOverrides,
+    archivedPlanIds,
     activeTemplateId,
   });
   
   // Dialog confirmation states
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [isTeamManagerOpen, setIsTeamManagerOpen] = useState(false);
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberRole, setNewMemberRole] = useState('');
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -159,7 +166,9 @@ function App() {
   const visibleDefaultTemplates = DEFAULT_TEMPLATES.filter(
     template => !hiddenDefaultTemplateIds.includes(template.id),
   );
-  const allTemplates = [...visibleDefaultTemplates, ...customTemplates];
+  const availableTemplates = [...visibleDefaultTemplates, ...customTemplates];
+  const allTemplates = availableTemplates.filter(template => !archivedPlanIds.includes(template.id));
+  const archivedTemplates = availableTemplates.filter(template => archivedPlanIds.includes(template.id));
   const activeTemplate = allTemplates.find(t => t.id === activeTemplateId) || allTemplates[0] || DEFAULT_TEMPLATES[0];
   const getPlanTitle = (template: MarketingTemplate) =>
     planNameOverrides[template.id] || (lang === 'uk' ? template.titleUa : template.titleEn);
@@ -206,6 +215,10 @@ function App() {
     localStorage.setItem('gantt_plan_name_overrides', JSON.stringify(planNameOverrides));
   }, [planNameOverrides]);
 
+  useEffect(() => {
+    localStorage.setItem('gantt_archived_plan_ids', JSON.stringify(archivedPlanIds));
+  }, [archivedPlanIds]);
+
   // Save Language changes
   useEffect(() => {
     localStorage.setItem('gantt_lang', JSON.stringify(lang));
@@ -239,15 +252,17 @@ function App() {
           const restoredHiddenDefaultTemplateIds = cloudState.hiddenDefaultTemplateIds ?? [];
           const restoredTeamMembers = cloudState.teamMembers ?? TEAM_MEMBERS;
           const restoredPlanNameOverrides = cloudState.planNameOverrides ?? {};
+          const restoredArchivedPlanIds = cloudState.archivedPlanIds ?? [];
           localStorage.setItem('gantt_hidden_default_templates', JSON.stringify(restoredHiddenDefaultTemplateIds));
           localStorage.setItem('gantt_team_members', JSON.stringify(restoredTeamMembers));
           localStorage.setItem('gantt_plan_name_overrides', JSON.stringify(restoredPlanNameOverrides));
+          localStorage.setItem('gantt_archived_plan_ids', JSON.stringify(restoredArchivedPlanIds));
           localStorage.setItem('gantt_active_template_id', JSON.stringify(cloudState.activeTemplateId));
 
           const restoredTemplates = [
             ...DEFAULT_TEMPLATES.filter(template => !restoredHiddenDefaultTemplateIds.includes(template.id)),
             ...cloudState.customTemplates,
-          ];
+          ].filter(template => !restoredArchivedPlanIds.includes(template.id));
           const fallbackTemplate = restoredTemplates[0] ?? DEFAULT_TEMPLATES[0];
           const restoredTemplateId = restoredTemplates.some(t => t.id === cloudState.activeTemplateId)
             ? cloudState.activeTemplateId
@@ -263,6 +278,7 @@ function App() {
           setHiddenDefaultTemplateIds(restoredHiddenDefaultTemplateIds);
           setTeamMembers(restoredTeamMembers);
           setPlanNameOverrides(restoredPlanNameOverrides);
+          setArchivedPlanIds(restoredArchivedPlanIds);
           setActiveTemplateId(restoredTemplateId);
           setTasks(restoredTasks);
           setTasksTemplateId(restoredTemplateId);
@@ -287,6 +303,7 @@ function App() {
             hiddenDefaultTemplateIds: initial.hiddenDefaultTemplateIds,
             teamMembers: initial.teamMembers,
             planNameOverrides: initial.planNameOverrides,
+            archivedPlanIds: initial.archivedPlanIds,
             activeTemplateId: initial.activeTemplateId,
             tasksByTemplate,
           };
@@ -339,6 +356,7 @@ function App() {
         hiddenDefaultTemplateIds,
         teamMembers,
         planNameOverrides,
+        archivedPlanIds,
         activeTemplateId,
         tasksByTemplate,
       };
@@ -356,7 +374,7 @@ function App() {
         window.clearTimeout(cloudSaveTimerRef.current);
       }
     };
-  }, [activeTemplateId, customTemplates, hiddenDefaultTemplateIds, lang, planNameOverrides, showOnboarding, tasks, tasksTemplateId, teamMembers, theme]);
+  }, [activeTemplateId, archivedPlanIds, customTemplates, hiddenDefaultTemplateIds, lang, planNameOverrides, showOnboarding, tasks, tasksTemplateId, teamMembers, theme]);
 
   // Toast notifier helper
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
@@ -366,6 +384,42 @@ function App() {
 
   const handleTemplateSelect = (id: string) => {
     setActiveTemplateId(id);
+  };
+
+  const handleArchivePlan = (templateId: string) => {
+    const template = allTemplates.find(item => item.id === templateId);
+    if (!template) return;
+    if (allTemplates.length <= 1) {
+      showToast(lang === 'uk' ? 'Не можна архівувати останній активний план' : 'You cannot archive the last active plan', 'error');
+      return;
+    }
+
+    setArchivedPlanIds(previous => previous.includes(templateId) ? previous : [...previous, templateId]);
+    if (activeTemplateId === templateId) {
+      const nextTemplate = allTemplates.find(item => item.id !== templateId);
+      if (nextTemplate) setActiveTemplateId(nextTemplate.id);
+    }
+    showToast(lang === 'uk' ? `План «${getPlanTitle(template)}» переміщено в архів` : `“${getPlanTitle(template)}” moved to archive`);
+  };
+
+  const handleRestorePlan = (templateId: string) => {
+    const template = archivedTemplates.find(item => item.id === templateId);
+    setArchivedPlanIds(previous => previous.filter(id => id !== templateId));
+    if (template) showToast(lang === 'uk' ? `План «${getPlanTitle(template)}» відновлено` : `“${getPlanTitle(template)}” restored`);
+  };
+
+  const handleArchiveTask = (taskId: string) => {
+    const task = tasks.find(item => item.id === taskId);
+    if (!task) return;
+    saveToHistory(lang === 'uk' ? 'Завдання архівовано' : 'Archived task', 'Archived task');
+    setTasks(previous => previous.map(item => item.id === taskId ? { ...item, archived: true } : item));
+    setSelectedTaskId(null);
+    showToast(lang === 'uk' ? `Завдання «${task.title}» переміщено в архів` : `“${task.title}” moved to archive`);
+  };
+
+  const handleRestoreTask = (taskId: string) => {
+    setTasks(previous => previous.map(item => item.id === taskId ? { ...item, archived: false } : item));
+    showToast(lang === 'uk' ? 'Завдання відновлено' : 'Task restored');
   };
 
   const handleRenamePlan = (templateId: string) => {
@@ -882,7 +936,9 @@ function App() {
   };
 
   // Filter tasks by query, assignee, and status
-  const filteredTasks = tasks.filter(t => {
+  const activeTasks = tasks.filter(task => !task.archived);
+  const archivedTasks = tasks.filter(task => task.archived);
+  const filteredTasks = activeTasks.filter(t => {
     const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           t.assignee.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesAssignee = filterAssignee === 'all'
@@ -891,10 +947,38 @@ function App() {
     return matchesSearch && matchesAssignee && matchesStatus;
   });
 
-  const completedTasks = tasks.filter(t => t.status === 'done').length;
-  const averageProgress = tasks.length
-    ? Math.round(tasks.reduce((sum, task) => sum + (task.isMilestone ? 0 : task.progress), 0) / tasks.length)
+  const completedTasks = activeTasks.filter(t => t.status === 'done').length;
+  const averageProgress = activeTasks.length
+    ? Math.round(activeTasks.reduce((sum, task) => sum + (task.isMilestone ? 0 : task.progress), 0) / activeTasks.length)
     : 0;
+  const planCalendarItems: PlanCalendarItem[] = allTemplates.map(template => {
+    const templateTasks = template.id === activeTemplateId
+      ? tasks
+      : getLocalStorage<Task[] | null>(`gantt_tasks_${template.id}`, null) ?? template.tasks;
+    const activeTemplateTasks = templateTasks.filter(task => !task.archived);
+    const datedTasks = activeTemplateTasks.filter(task => task.startDate && task.endDate);
+    const today = new Date().toISOString().split('T')[0];
+    const startDate = datedTasks.length
+      ? datedTasks.reduce((earliest, task) => task.startDate < earliest ? task.startDate : earliest, datedTasks[0].startDate)
+      : today;
+    const endDate = datedTasks.length
+      ? datedTasks.reduce((latest, task) => task.endDate > latest ? task.endDate : latest, datedTasks[0].endDate)
+      : today;
+    const progressTasks = activeTemplateTasks.filter(task => !task.isMilestone);
+
+    return {
+      id: template.id,
+      title: getPlanTitle(template),
+      category: lang === 'uk' ? template.categoryUa : template.categoryEn,
+      startDate,
+      endDate,
+      progress: progressTasks.length
+        ? Math.round(progressTasks.reduce((sum, task) => sum + task.progress, 0) / progressTasks.length)
+        : 0,
+      taskCount: activeTemplateTasks.length,
+      color: activeTemplateTasks.find(task => task.color)?.color ?? '#6366f1',
+    };
+  });
   const activeTemplateTitle = getPlanTitle(activeTemplate);
   const activeTemplateDescription = lang === 'uk' ? activeTemplate.descriptionUa : activeTemplate.descriptionEn;
   const activeFiltersCount = [
@@ -952,7 +1036,7 @@ function App() {
             </h3>
             {templatesExpanded && (
               <div className="template-list">
-                {visibleDefaultTemplates.map(t => (
+                {visibleDefaultTemplates.filter(t => !archivedPlanIds.includes(t.id)).map(t => (
                   <div className="template-row" key={t.id}>
                     <button
                       className={`template-item ${activeTemplateId === t.id ? 'active' : ''}`}
@@ -973,6 +1057,14 @@ function App() {
                       aria-label={`${lang === 'uk' ? 'Перейменувати план' : 'Rename plan'}: ${getPlanTitle(t)}`}
                     >
                       <Pencil size={13} />
+                    </button>
+                    <button
+                      className="template-archive-btn"
+                      onClick={() => handleArchivePlan(t.id)}
+                      title={lang === 'uk' ? 'Архівувати план' : 'Archive plan'}
+                      aria-label={`${lang === 'uk' ? 'Архівувати план' : 'Archive plan'}: ${getPlanTitle(t)}`}
+                    >
+                      <Archive size={14} />
                     </button>
                     <button
                       className="template-delete-btn"
@@ -1005,7 +1097,7 @@ function App() {
             
             {customExpanded && (
               <div className="template-list">
-                {customTemplates.map(t => (
+                {customTemplates.filter(t => !archivedPlanIds.includes(t.id)).map(t => (
                   <div className="template-row" key={t.id}>
                     <button
                       className={`template-item ${activeTemplateId === t.id ? 'active' : ''}`}
@@ -1028,6 +1120,14 @@ function App() {
                       <Pencil size={13} />
                     </button>
                     <button
+                      className="template-archive-btn"
+                      onClick={() => handleArchivePlan(t.id)}
+                      title={lang === 'uk' ? 'Архівувати план' : 'Archive plan'}
+                      aria-label={`${lang === 'uk' ? 'Архівувати план' : 'Archive plan'}: ${getPlanTitle(t)}`}
+                    >
+                      <Archive size={14} />
+                    </button>
+                    <button
                       className="template-delete-btn"
                       onClick={() => handleDeletePlan(t.id)}
                       title={getTranslation(lang, 'deletePlan')}
@@ -1038,7 +1138,7 @@ function App() {
                   </div>
                 ))}
                 
-                {customTemplates.length === 0 && (
+                {customTemplates.filter(t => !archivedPlanIds.includes(t.id)).length === 0 && (
                   <div className="empty-mini">
                     {lang === 'uk' ? 'Створіть свій план' : 'Create your plan'}
                   </div>
@@ -1096,33 +1196,38 @@ function App() {
             </button>
 
             <div className="view-tabs">
-              {(['gantt', 'grid', 'kanban', 'workload'] as ActiveTab[]).map(tab => (
+              {(['plans', 'gantt', 'grid', 'kanban', 'workload'] as ActiveTab[]).map(tab => (
                 <button
                   key={tab}
                   className={`view-tab ${activeTab === tab ? 'active' : ''}`}
                   onClick={() => setActiveTab(tab)}
                 >
+                  {tab === 'plans' && <CalendarRange size={14} />}
                   {tab === 'gantt' && <Calendar size={14} />}
                   {tab === 'grid' && <Table size={14} />}
                   {tab === 'kanban' && <Compass size={14} />}
                   {tab === 'workload' && <Users size={14} />}
                   <span className="hide-mobile-text">
-                    {getTranslation(lang, `view${tab.charAt(0).toUpperCase() + tab.slice(1)}` as any)}
+                    {tab === 'plans'
+                      ? (lang === 'uk' ? 'Плани' : 'Plans')
+                      : getTranslation(lang, `view${tab.charAt(0).toUpperCase() + tab.slice(1)}` as any)}
                   </span>
                 </button>
               ))}
             </div>
 
-            {activeTab === 'gantt' && (
+            {(activeTab === 'gantt' || activeTab === 'plans') && (
               <div className="controls-group gantt-controls">
-                <button
-                  className={`btn btn-secondary btn-compact ${showGanttSidebar ? 'active' : ''}`}
-                  onClick={() => setShowGanttSidebar(!showGanttSidebar)}
-                  title={lang === 'uk' ? 'Показати/Сховати список завдань' : 'Toggle Gantt Tasks List'}
-                >
-                  {showGanttSidebar ? <EyeOff size={14} /> : <Eye size={14} />}
-                  <span>{lang === 'uk' ? 'Завдання' : 'Tasks'}</span>
-                </button>
+                {activeTab === 'gantt' && (
+                  <button
+                    className={`btn btn-secondary btn-compact ${showGanttSidebar ? 'active' : ''}`}
+                    onClick={() => setShowGanttSidebar(!showGanttSidebar)}
+                    title={lang === 'uk' ? 'Показати/Сховати список завдань' : 'Toggle Gantt Tasks List'}
+                  >
+                    {showGanttSidebar ? <EyeOff size={14} /> : <Eye size={14} />}
+                    <span>{lang === 'uk' ? 'Завдання' : 'Tasks'}</span>
+                  </button>
+                )}
 
                 <span className="control-label">{getTranslation(lang, 'zoomLabel')}</span>
                 <div className="view-tabs">
@@ -1141,18 +1246,20 @@ function App() {
           </div>
 
           <div className="header-right">
-            <div className="search-container">
-              <Search className="search-icon" size={16} />
-              <input
-                type="text"
-                className="search-input"
-                placeholder={getTranslation(lang, 'searchPlaceholder')}
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-              />
-            </div>
+            {activeTab !== 'plans' && (
+              <div className="search-container">
+                <Search className="search-icon" size={16} />
+                <input
+                  type="text"
+                  className="search-input"
+                  placeholder={getTranslation(lang, 'searchPlaceholder')}
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                />
+              </div>
+            )}
 
-            <div className="controls-group">
+            {activeTab !== 'plans' && <div className="controls-group">
               <select
                 className="header-filter-select"
                 value={filterAssignee}
@@ -1187,9 +1294,20 @@ function App() {
                 <option value="in_review">{getTranslation(lang, 'in_review')}</option>
                 <option value="done">{getTranslation(lang, 'done')}</option>
               </select>
-            </div>
+            </div>}
 
             <div className="controls-group">
+              <button
+                className={`btn-icon archive-manager-button ${archivedTemplates.length + archivedTasks.length > 0 ? 'has-items' : ''}`}
+                onClick={() => setIsArchiveOpen(true)}
+                title={lang === 'uk' ? 'Відкрити архів' : 'Open archive'}
+                aria-label={lang === 'uk' ? 'Відкрити архів' : 'Open archive'}
+              >
+                <Archive size={16} />
+                {archivedTemplates.length + archivedTasks.length > 0 && (
+                  <span>{archivedTemplates.length + archivedTasks.length}</span>
+                )}
+              </button>
               <button
                 className={`btn-icon cloud-sync-status cloud-sync-${cloudStatus}`}
                 disabled
@@ -1303,7 +1421,7 @@ function App() {
           </div>
         </header>
 
-        {activeTab !== 'gantt' && (
+        {activeTab !== 'gantt' && activeTab !== 'plans' && (
           <section className="project-summary">
             <div className="project-title-block">
               <p className="eyebrow">{lang === 'uk' ? 'Поточний план' : 'Current plan'}</p>
@@ -1314,7 +1432,7 @@ function App() {
             <div className="summary-stats">
               <div className="summary-stat">
                 <span>{lang === 'uk' ? 'Завдань' : 'Tasks'}</span>
-                <strong>{tasks.length}</strong>
+                <strong>{activeTasks.length}</strong>
               </div>
               <div className="summary-stat">
                 <span>{lang === 'uk' ? 'Виконано' : 'Done'}</span>
@@ -1332,12 +1450,12 @@ function App() {
           </section>
         )}
 
-        {activeFiltersCount > 0 && (
+        {activeTab !== 'plans' && activeFiltersCount > 0 && (
           <div className="filter-note">
             <span>
               {lang === 'uk'
-                ? `Активні фільтри: ${activeFiltersCount}. Показано ${filteredTasks.length} з ${tasks.length} завдань.`
-                : `Active filters: ${activeFiltersCount}. Showing ${filteredTasks.length} of ${tasks.length} tasks.`}
+                ? `Активні фільтри: ${activeFiltersCount}. Показано ${filteredTasks.length} з ${activeTasks.length} завдань.`
+                : `Active filters: ${activeFiltersCount}. Showing ${filteredTasks.length} of ${activeTasks.length} tasks.`}
             </span>
             <button
               className="btn btn-secondary btn-compact"
@@ -1355,6 +1473,19 @@ function App() {
 
         {/* View Switcher Content */}
         <div className="content-area">
+          {activeTab === 'plans' && (
+            <PlansCalendarView
+              plans={planCalendarItems}
+              zoomLevel={zoomLevel}
+              lang={lang}
+              onSelect={id => {
+                handleTemplateSelect(id);
+                setActiveTab('gantt');
+              }}
+              onArchive={handleArchivePlan}
+            />
+          )}
+
           {activeTab === 'gantt' && (
             <GanttChart
               tasks={filteredTasks}
@@ -1425,7 +1556,8 @@ function App() {
           onUpdate={handleUpdateTask}
           onClone={handleCloneTask}
           onDelete={handleDeleteTask}
-          tasks={tasks}
+          onArchive={handleArchiveTask}
+          tasks={activeTasks}
           lang={lang}
           teamMembers={teamMembers}
         />
@@ -1502,6 +1634,76 @@ function App() {
                 {lang === 'uk' ? 'Додати виконавця' : 'Add assignee'}
               </button>
             </form>
+          </div>
+        </>
+      )}
+
+      {/* Plans and tasks archive */}
+      {isArchiveOpen && (
+        <>
+          <div className="dialog-backdrop" onClick={() => setIsArchiveOpen(false)} />
+          <div className="dialog-container archive-dialog" role="dialog" aria-modal="true" aria-labelledby="archive-title">
+            <div className="archive-dialog-header">
+              <div>
+                <div className="dialog-header" id="archive-title">
+                  {lang === 'uk' ? 'Архів' : 'Archive'}
+                </div>
+                <p>{lang === 'uk' ? 'Відновлюйте плани та завдання без втрати даних.' : 'Restore plans and tasks without losing data.'}</p>
+              </div>
+              <button className="btn-icon" onClick={() => setIsArchiveOpen(false)} aria-label={getTranslation(lang, 'close')}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="archive-section">
+              <div className="archive-section-title">
+                <span>{lang === 'uk' ? 'Плани' : 'Plans'}</span>
+                <strong>{archivedTemplates.length}</strong>
+              </div>
+              <div className="archive-list">
+                {archivedTemplates.map(template => (
+                  <div className="archive-row" key={template.id}>
+                    <span className="archive-row-icon"><CalendarRange size={16} /></span>
+                    <span className="archive-row-copy">
+                      <strong>{getPlanTitle(template)}</strong>
+                      <small>{lang === 'uk' ? template.categoryUa : template.categoryEn}</small>
+                    </span>
+                    <button className="btn btn-secondary btn-compact" onClick={() => handleRestorePlan(template.id)}>
+                      <RotateCcw size={14} />
+                      {lang === 'uk' ? 'Відновити' : 'Restore'}
+                    </button>
+                  </div>
+                ))}
+                {archivedTemplates.length === 0 && (
+                  <div className="archive-empty">{lang === 'uk' ? 'Архівованих планів немає' : 'No archived plans'}</div>
+                )}
+              </div>
+            </div>
+
+            <div className="archive-section">
+              <div className="archive-section-title">
+                <span>{lang === 'uk' ? `Завдання: ${activeTemplateTitle}` : `Tasks: ${activeTemplateTitle}`}</span>
+                <strong>{archivedTasks.length}</strong>
+              </div>
+              <div className="archive-list">
+                {archivedTasks.map(task => (
+                  <div className="archive-row" key={task.id}>
+                    <span className="archive-row-color" style={{ background: task.color ?? '#6366f1' }} />
+                    <span className="archive-row-copy">
+                      <strong>{task.title}</strong>
+                      <small>{task.startDate} — {task.endDate}</small>
+                    </span>
+                    <button className="btn btn-secondary btn-compact" onClick={() => handleRestoreTask(task.id)}>
+                      <RotateCcw size={14} />
+                      {lang === 'uk' ? 'Відновити' : 'Restore'}
+                    </button>
+                  </div>
+                ))}
+                {archivedTasks.length === 0 && (
+                  <div className="archive-empty">{lang === 'uk' ? 'У поточному плані немає архівованих завдань' : 'No archived tasks in the current plan'}</div>
+                )}
+              </div>
+            </div>
           </div>
         </>
       )}

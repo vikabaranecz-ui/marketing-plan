@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { Task, TaskComment, SubTask, Language, TeamMember } from '../types';
 import { getTranslation } from '../utils/locales';
-import { X, Plus, Trash2, CheckSquare, MessageSquare, AlertTriangle, Send, Copy } from 'lucide-react';
+import { X, Plus, Trash2, CheckSquare, MessageSquare, AlertTriangle, Send, Copy, Archive } from 'lucide-react';
 
 interface TaskDetailsDrawerProps {
   task: Task;
@@ -9,6 +9,7 @@ interface TaskDetailsDrawerProps {
   onUpdate: (task: Task) => void;
   onClone: (id: string) => void;
   onDelete: (id: string) => void;
+  onArchive: (id: string) => void;
   tasks: Task[];
   lang: Language;
   teamMembers: TeamMember[];
@@ -44,6 +45,7 @@ export default function TaskDetailsDrawer({
   onUpdate,
   onClone,
   onDelete,
+  onArchive,
   tasks,
   lang,
   teamMembers,
@@ -548,6 +550,15 @@ export default function TaskDetailsDrawer({
             title={getTranslation(lang, 'cloneTaskTooltip')}
           >
             <Copy size={16} />
+          </button>
+          <button
+            className="btn btn-secondary"
+            style={{ width: 'auto', padding: '10px 16px' }}
+            onClick={() => onArchive(task.id)}
+            title={lang === 'uk' ? 'Архівувати завдання' : 'Archive task'}
+            aria-label={lang === 'uk' ? 'Архівувати завдання' : 'Archive task'}
+          >
+            <Archive size={16} />
           </button>
           <button 
             className="btn btn-danger" 

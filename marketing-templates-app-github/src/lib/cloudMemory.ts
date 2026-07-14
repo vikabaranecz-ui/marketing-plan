@@ -26,6 +26,7 @@ export interface CloudAppState {
   hiddenDefaultTemplateIds: string[];
   teamMembers: TeamMember[];
   planNameOverrides: Record<string, string>;
+  archivedPlanIds: string[];
   activeTemplateId: string;
   tasksByTemplate: Record<string, Task[]>;
 }
@@ -54,6 +55,9 @@ export const isCloudAppState = (value: unknown): value is CloudAppState => {
       (!!state.planNameOverrides &&
         typeof state.planNameOverrides === 'object' &&
         Object.values(state.planNameOverrides).every(name => typeof name === 'string'))) &&
+    (state.archivedPlanIds === undefined ||
+      (Array.isArray(state.archivedPlanIds) &&
+        state.archivedPlanIds.every(id => typeof id === 'string'))) &&
     typeof state.activeTemplateId === 'string' &&
     !!state.tasksByTemplate &&
     typeof state.tasksByTemplate === 'object'

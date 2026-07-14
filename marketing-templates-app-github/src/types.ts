@@ -29,6 +29,7 @@ export interface Task {
   color?: string; // Hex or theme color name
   subtasks: SubTask[];
   comments: TaskComment[];
+  archived?: boolean;
 }
 
 export interface MarketingTemplate {
@@ -51,5 +52,5 @@ export interface TeamMember {
 }
 
 export type ZoomLevel = 'days' | 'weeks' | 'months';
-export type ActiveTab = 'gantt' | 'grid' | 'kanban' | 'workload';
+export type ActiveTab = 'plans' | 'gantt' | 'grid' | 'kanban' | 'workload';
 export type Language = 'uk' | 'en';
