@@ -607,25 +607,31 @@ function App() {
     showToast(lang === 'uk' ? 'План успішно здубльовано!' : 'Plan successfully duplicated!', 'success');
   };
 
-  // 3. DELETE Active Project Plan (Custom Only)
-  const handleDeleteActivePlan = () => {
-    const isDefault = DEFAULT_TEMPLATES.some(t => t.id === activeTemplateId);
+  // 3. DELETE Project Plan (Custom Only)
+  const handleDeletePlan = (templateId: string) => {
+    const isDefault = DEFAULT_TEMPLATES.some(t => t.id === templateId);
     if (isDefault) {
       alert(getTranslation(lang, 'cannotDeleteDefault'));
       return;
     }
 
-    const confirmDel = confirm(getTranslation(lang, 'confirmDeletePlan'));
+    const template = customTemplates.find(t => t.id === templateId);
+    if (!template) return;
+
+    const templateTitle = lang === 'uk' ? template.titleUa : template.titleEn;
+    const confirmDel = confirm(`${getTranslation(lang, 'confirmDeletePlan')}\n\n${templateTitle}`);
     if (!confirmDel) return;
 
-    // Filter out the deleted template
-    setCustomTemplates(prev => prev.filter(t => t.id !== activeTemplateId));
-    localStorage.removeItem(`gantt_tasks_${activeTemplateId}`);
-    
-    // Fall back to the default campaign template
-    setActiveTemplateId('campaign-plan');
+    setCustomTemplates(prev => prev.filter(t => t.id !== templateId));
+    localStorage.removeItem(`gantt_tasks_${templateId}`);
+
+    if (activeTemplateId === templateId) {
+      setActiveTemplateId('campaign-plan');
+    }
     showToast(lang === 'uk' ? 'Проект видалено' : 'Plan deleted', 'success');
   };
+
+  const handleDeleteActivePlan = () => handleDeletePlan(activeTemplateId);
 
   // Save current plan state as a custom template
   const handleSaveAsTemplate = () => {
@@ -838,19 +844,28 @@ function App() {
             {customExpanded && (
               <div className="template-list">
                 {customTemplates.map(t => (
-                  <button
-                    key={t.id}
-                    className={`template-item ${activeTemplateId === t.id ? 'active' : ''}`}
-                    onClick={() => handleTemplateSelect(t.id)}
-                  >
-                    <div className="template-icon-wrapper">
-                      {renderTemplateIcon(t.iconName)}
-                    </div>
-                    <div className="template-details">
-                      <h4>{t.titleUa}</h4>
-                      <span>{lang === 'uk' ? t.categoryUa : t.categoryEn}</span>
-                    </div>
-                  </button>
+                  <div className="custom-template-row" key={t.id}>
+                    <button
+                      className={`template-item ${activeTemplateId === t.id ? 'active' : ''}`}
+                      onClick={() => handleTemplateSelect(t.id)}
+                    >
+                      <div className="template-icon-wrapper">
+                        {renderTemplateIcon(t.iconName)}
+                      </div>
+                      <div className="template-details">
+                        <h4>{t.titleUa}</h4>
+                        <span>{lang === 'uk' ? t.categoryUa : t.categoryEn}</span>
+                      </div>
+                    </button>
+                    <button
+                      className="template-delete-btn"
+                      onClick={() => handleDeletePlan(t.id)}
+                      title={getTranslation(lang, 'deletePlan')}
+                      aria-label={`${getTranslation(lang, 'deletePlan')}: ${lang === 'uk' ? t.titleUa : t.titleEn}`}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 ))}
                 
                 {customTemplates.length === 0 && (
