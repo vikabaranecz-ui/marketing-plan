@@ -1850,13 +1850,15 @@ function App() {
         </>
       )}
 
-      <TodayPanel
-        groups={todayPlanGroups}
-        lang={lang}
-        referenceDate={today}
-        onOpenPlan={handleOpenTodayPlan}
-        onOpenTask={handleOpenTodayTask}
-      />
+      {!selectedTask && (
+        <TodayPanel
+          groups={todayPlanGroups}
+          lang={lang}
+          referenceDate={today}
+          onOpenPlan={handleOpenTodayPlan}
+          onOpenTask={handleOpenTodayTask}
+        />
+      )}
 
       {/* Task Edit Side Drawer */}
       {selectedTask && (
