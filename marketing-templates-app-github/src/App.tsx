@@ -4,7 +4,7 @@ import {
   Download, Upload, Languages, RotateCcw, FileText, AlertTriangle,
   Sun, Moon, Copy, Trash2, Info, X, ChevronDown, ChevronRight,
   Menu, Eye, EyeOff, Table, Users, Cloud, CloudOff, LoaderCircle, Pencil,
-  Archive, CalendarRange
+  Archive, CalendarRange, MoreHorizontal, SlidersHorizontal, FolderOpen
 } from 'lucide-react';
 import './App.css';
 import type { Task, MarketingTemplate, ActiveTab, ZoomLevel, Language, TeamMember } from './types';
@@ -18,6 +18,8 @@ import WorkloadView from './components/WorkloadView';
 import TaskDetailsDrawer from './components/TaskDetailsDrawer';
 import PlansCalendarView, { type PlanCalendarItem } from './components/PlansCalendarView';
 import TodayPanel, { type TodayPlanGroup } from './components/TodayPanel';
+import MobileTaskList from './components/MobileTaskList';
+import MobilePlansView from './components/MobilePlansView';
 import {
   ensureCloudUser,
   loadCloudState,
@@ -43,7 +45,7 @@ function App() {
   const [lang, setLang] = useState<Language>(() => getLocalStorage<Language>('gantt_lang', 'uk'));
   
   // Layout views & search filters
-  const [activeTab, setActiveTab] = useState<ActiveTab>('gantt');
+  const [activeTab, setActiveTab] = useState<ActiveTab>(() => window.innerWidth <= 900 ? 'plans' : 'gantt');
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('days');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterAssignee, setFilterAssignee] = useState<string>('all');
@@ -57,6 +59,10 @@ function App() {
   // Global responsive sidebar collapse states
   const [showMainSidebar, setShowMainSidebar] = useState(true);
   const [showGanttSidebar, setShowGanttSidebar] = useState(true);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 900);
+  const [isMobilePlanSheetOpen, setIsMobilePlanSheetOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
 
 
   // Custom Templates/Projects list
@@ -1078,6 +1084,13 @@ function App() {
   // Handle Responsive Viewport Logic
   useEffect(() => {
     const handleResize = () => {
+      const mobile = window.innerWidth <= 900;
+      setIsMobile(mobile);
+      if (!mobile) {
+        setIsMobilePlanSheetOpen(false);
+        setIsMobileMenuOpen(false);
+        setIsMobileFiltersOpen(false);
+      }
       if (window.innerWidth < 1024) {
         setShowMainSidebar(false);
         setShowGanttSidebar(false);
@@ -1260,6 +1273,93 @@ function App() {
 
       {/* Main Workspace */}
       <main className="main-workspace">
+        <header className="mobile-app-header">
+          <button
+            className="mobile-header-button"
+            onClick={() => setIsMobilePlanSheetOpen(true)}
+            aria-label={lang === 'uk' ? 'Відкрити список планів' : 'Open plans list'}
+          >
+            <FolderOpen size={20} />
+          </button>
+          <button className="mobile-current-plan" onClick={() => setIsMobilePlanSheetOpen(true)}>
+            <small>
+              {activeTab === 'plans'
+                ? (lang === 'uk' ? 'Робочий простір' : 'Workspace')
+                : (lang === 'uk' ? 'Поточний план' : 'Current plan')}
+            </small>
+            <strong>{activeTab === 'plans' ? (lang === 'uk' ? 'Мої плани' : 'My plans') : activeTemplateTitle}</strong>
+          </button>
+          <span className={`mobile-cloud-status mobile-cloud-${cloudStatus}`} title={cloudStatus}>
+            {cloudStatus === 'synced' && <Cloud size={16} />}
+            {(cloudStatus === 'connecting' || cloudStatus === 'saving') && <LoaderCircle size={16} />}
+            {cloudStatus === 'error' && <CloudOff size={16} />}
+          </span>
+          <button
+            className="mobile-header-button"
+            onClick={() => setIsMobileMenuOpen(true)}
+            aria-label={lang === 'uk' ? 'Більше дій' : 'More actions'}
+          >
+            <MoreHorizontal size={21} />
+          </button>
+        </header>
+
+        {activeTab !== 'plans' && (
+          <div className="mobile-search-panel">
+            <div className="mobile-search-row">
+              <label>
+                <Search size={16} />
+                <input
+                  value={searchQuery}
+                  onChange={event => setSearchQuery(event.target.value)}
+                  placeholder={lang === 'uk' ? 'Знайти завдання…' : 'Find a task…'}
+                />
+              </label>
+              <button
+                className={isMobileFiltersOpen || activeFiltersCount > 0 ? 'active' : ''}
+                onClick={() => setIsMobileFiltersOpen(previous => !previous)}
+                aria-label={lang === 'uk' ? 'Фільтри' : 'Filters'}
+              >
+                <SlidersHorizontal size={17} />
+                {activeFiltersCount > 0 && <span>{activeFiltersCount}</span>}
+              </button>
+            </div>
+            {isMobileFiltersOpen && (
+              <div className="mobile-filter-options">
+                <select value={filterAssignee} onChange={event => setFilterAssignee(event.target.value)}>
+                  <option value="all">{lang === 'uk' ? 'Всі виконавці' : 'All assignees'}</option>
+                  <option value="__unassigned__">{lang === 'uk' ? 'Без виконавця' : 'Unassigned'}</option>
+                  {teamMembers.map(member => <option value={member.name} key={member.name}>{member.name}</option>)}
+                </select>
+                <select value={filterStatus} onChange={event => setFilterStatus(event.target.value)}>
+                  <option value="all">{lang === 'uk' ? 'Всі статуси' : 'All statuses'}</option>
+                  <option value="todo">{getTranslation(lang, 'todo')}</option>
+                  <option value="in_progress">{getTranslation(lang, 'in_progress')}</option>
+                  <option value="in_review">{getTranslation(lang, 'in_review')}</option>
+                  <option value="done">{getTranslation(lang, 'done')}</option>
+                </select>
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setFilterAssignee('all');
+                    setFilterStatus('all');
+                  }}
+                >
+                  <X size={14} />{lang === 'uk' ? 'Очистити' : 'Clear'}
+                </button>
+              </div>
+            )}
+            {activeTab === 'gantt' && (
+              <div className="mobile-zoom-switch">
+                {(['days', 'weeks', 'months'] as ZoomLevel[]).map(level => (
+                  <button className={zoomLevel === level ? 'active' : ''} onClick={() => setZoomLevel(level)} key={level}>
+                    {getTranslation(lang, level as any)}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <header className="header">
           <div className="header-left">
             <button
@@ -1496,7 +1596,7 @@ function App() {
           </div>
         </header>
 
-        {activeTab !== 'gantt' && activeTab !== 'plans' && (
+        {!isMobile && activeTab !== 'gantt' && activeTab !== 'plans' && (
           <section className="project-summary">
             <div className="project-title-block">
               <p className="eyebrow">{lang === 'uk' ? 'Поточний план' : 'Current plan'}</p>
@@ -1525,7 +1625,7 @@ function App() {
           </section>
         )}
 
-        {activeTab !== 'plans' && activeFiltersCount > 0 && (
+        {!isMobile && activeTab !== 'plans' && activeFiltersCount > 0 && (
           <div className="filter-note">
             <span>
               {lang === 'uk'
@@ -1549,16 +1649,31 @@ function App() {
         {/* View Switcher Content */}
         <div className="content-area">
           {activeTab === 'plans' && (
-            <PlansCalendarView
-              plans={planCalendarItems}
-              zoomLevel={zoomLevel}
-              lang={lang}
-              onSelect={id => {
-                handleTemplateSelect(id);
-                setActiveTab('gantt');
-              }}
-              onArchive={handleArchivePlan}
-            />
+            isMobile ? (
+              <MobilePlansView
+                plans={planCalendarItems}
+                activePlanId={activeTemplateId}
+                lang={lang}
+                onAdd={handleCreateBlankPlan}
+                onArchive={handleArchivePlan}
+                onOpen={id => {
+                  handleTemplateSelect(id);
+                  setActiveTab('grid');
+                }}
+                onRename={handleRenamePlan}
+              />
+            ) : (
+              <PlansCalendarView
+                plans={planCalendarItems}
+                zoomLevel={zoomLevel}
+                lang={lang}
+                onSelect={id => {
+                  handleTemplateSelect(id);
+                  setActiveTab('gantt');
+                }}
+                onArchive={handleArchivePlan}
+              />
+            )
           )}
 
           {activeTab === 'gantt' && (
@@ -1577,16 +1692,27 @@ function App() {
           )}
 
           {activeTab === 'grid' && (
-            <GridView
-              tasks={filteredTasks}
-              updateTask={handleUpdateTask}
-              addTask={handleAddTask}
-              cloneTask={handleCloneTask}
-              deleteTask={handleDeleteTask}
-              setSelectedTaskId={setSelectedTaskId}
-              lang={lang}
-              teamMembers={teamMembers}
-            />
+            isMobile ? (
+              <MobileTaskList
+                tasks={filteredTasks}
+                lang={lang}
+                teamMembers={teamMembers}
+                onAdd={() => handleAddTask('todo')}
+                onOpen={setSelectedTaskId}
+                onUpdate={handleUpdateTask}
+              />
+            ) : (
+              <GridView
+                tasks={filteredTasks}
+                updateTask={handleUpdateTask}
+                addTask={handleAddTask}
+                cloneTask={handleCloneTask}
+                deleteTask={handleDeleteTask}
+                setSelectedTaskId={setSelectedTaskId}
+                lang={lang}
+                teamMembers={teamMembers}
+              />
+            )
           )}
 
           {activeTab === 'kanban' && (
@@ -1621,7 +1747,104 @@ function App() {
             </button>
           </div>
         )}
+
+        <nav className="mobile-bottom-nav" aria-label={lang === 'uk' ? 'Основна навігація' : 'Main navigation'}>
+          {([
+            { id: 'plans' as ActiveTab, icon: <CalendarRange size={20} />, uk: 'Плани', en: 'Plans' },
+            { id: 'grid' as ActiveTab, icon: <Table size={20} />, uk: 'Завдання', en: 'Tasks' },
+            { id: 'kanban' as ActiveTab, icon: <Compass size={20} />, uk: 'Дошка', en: 'Board' },
+            { id: 'gantt' as ActiveTab, icon: <Calendar size={20} />, uk: 'Графік', en: 'Timeline' },
+            { id: 'workload' as ActiveTab, icon: <Users size={20} />, uk: 'Команда', en: 'Team' },
+          ]).map(item => (
+            <button
+              className={activeTab === item.id ? 'active' : ''}
+              onClick={() => setActiveTab(item.id)}
+              key={item.id}
+            >
+              {item.icon}
+              <span>{lang === 'uk' ? item.uk : item.en}</span>
+            </button>
+          ))}
+        </nav>
       </main>
+
+      {isMobilePlanSheetOpen && (
+        <>
+          <div className="mobile-sheet-backdrop" onClick={() => setIsMobilePlanSheetOpen(false)} />
+          <section className="mobile-sheet mobile-plan-sheet" role="dialog" aria-modal="true" aria-labelledby="mobile-plans-title">
+            <div className="mobile-sheet-handle" />
+            <header className="mobile-sheet-header">
+              <div>
+                <small>{lang === 'uk' ? 'Робочий простір' : 'Workspace'}</small>
+                <h2 id="mobile-plans-title">{lang === 'uk' ? 'Виберіть план' : 'Choose a plan'}</h2>
+              </div>
+              <button className="btn-icon" onClick={() => setIsMobilePlanSheetOpen(false)} aria-label={getTranslation(lang, 'close')}><X size={18} /></button>
+            </header>
+            <button className="mobile-sheet-create" onClick={() => { setIsMobilePlanSheetOpen(false); handleCreateBlankPlan(); }}>
+              <Plus size={18} />
+              <span><strong>{lang === 'uk' ? 'Новий план' : 'New plan'}</strong><small>{lang === 'uk' ? 'Почати з чистого аркуша' : 'Start from scratch'}</small></span>
+            </button>
+            <div className="mobile-sheet-list">
+              {allTemplates.map(template => (
+                <div className={`mobile-sheet-plan-row ${template.id === activeTemplateId ? 'active' : ''}`} key={template.id}>
+                  <button
+                    className="mobile-sheet-plan-main"
+                    onClick={() => {
+                      handleTemplateSelect(template.id);
+                      setActiveTab('grid');
+                      setIsMobilePlanSheetOpen(false);
+                    }}
+                  >
+                    <span className="mobile-sheet-plan-icon">{renderTemplateIcon(template.iconName)}</span>
+                    <span><strong>{getPlanTitle(template)}</strong><small>{lang === 'uk' ? template.categoryUa : template.categoryEn}</small></span>
+                    {template.id === activeTemplateId && <i>{lang === 'uk' ? 'Активний' : 'Active'}</i>}
+                  </button>
+                  <div className="mobile-sheet-plan-actions">
+                    <button onClick={() => handleRenamePlan(template.id)} aria-label={lang === 'uk' ? 'Перейменувати' : 'Rename'}><Pencil size={15} /></button>
+                    <button onClick={() => handleArchivePlan(template.id)} aria-label={lang === 'uk' ? 'Архівувати' : 'Archive'}><Archive size={15} /></button>
+                    <button onClick={() => handleDeletePlan(template.id)} aria-label={lang === 'uk' ? 'Видалити' : 'Delete'}><Trash2 size={15} /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </>
+      )}
+
+      {isMobileMenuOpen && (
+        <>
+          <div className="mobile-sheet-backdrop" onClick={() => setIsMobileMenuOpen(false)} />
+          <section className="mobile-sheet mobile-actions-sheet" role="dialog" aria-modal="true" aria-labelledby="mobile-actions-title">
+            <div className="mobile-sheet-handle" />
+            <header className="mobile-sheet-header">
+              <div>
+                <small>{activeTemplateTitle}</small>
+                <h2 id="mobile-actions-title">{lang === 'uk' ? 'Інструменти' : 'Tools'}</h2>
+              </div>
+              <button className="btn-icon" onClick={() => setIsMobileMenuOpen(false)} aria-label={getTranslation(lang, 'close')}><X size={18} /></button>
+            </header>
+            <div className={`mobile-sync-card mobile-sync-${cloudStatus}`}>
+              {cloudStatus === 'synced' ? <Cloud size={17} /> : cloudStatus === 'error' ? <CloudOff size={17} /> : <LoaderCircle size={17} />}
+              <span>
+                <strong>{cloudStatus === 'synced' ? (lang === 'uk' ? 'Збережено' : 'Saved') : cloudStatus === 'error' ? (lang === 'uk' ? 'Немає синхронізації' : 'Sync unavailable') : (lang === 'uk' ? 'Синхронізація…' : 'Syncing…')}</strong>
+                <small>Supabase</small>
+              </span>
+            </div>
+            <div className="mobile-action-grid">
+              <button onClick={() => { setIsMobileMenuOpen(false); setIsTeamManagerOpen(true); }}><Users size={19} /><span>{lang === 'uk' ? 'Виконавці' : 'Assignees'}</span></button>
+              <button onClick={() => { setIsMobileMenuOpen(false); setIsArchiveOpen(true); }}><Archive size={19} /><span>{lang === 'uk' ? 'Архів' : 'Archive'}</span></button>
+              <button onClick={() => { setIsMobileMenuOpen(false); handleDuplicateActivePlan(); }}><Copy size={19} /><span>{lang === 'uk' ? 'Дублювати' : 'Duplicate'}</span></button>
+              <button onClick={() => { setIsMobileMenuOpen(false); handleSaveAsTemplate(); }}><Plus size={19} /><span>{lang === 'uk' ? 'Як шаблон' : 'As template'}</span></button>
+              <button onClick={() => { setIsMobileMenuOpen(false); setIsResetConfirmOpen(true); }}><RotateCcw size={19} /><span>{lang === 'uk' ? 'Скинути' : 'Reset'}</span></button>
+              <button onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')}>{theme === 'light' ? <Moon size={19} /> : <Sun size={19} />}<span>{lang === 'uk' ? 'Тема' : 'Theme'}</span></button>
+              <button onClick={() => setLang(value => value === 'uk' ? 'en' : 'uk')}><Languages size={19} /><span>{lang === 'uk' ? 'Мова' : 'Language'}</span></button>
+              <button onClick={handleExportJSON}><Download size={19} /><span>JSON</span></button>
+              <button onClick={handleExportCSV}><FileText size={19} /><span>CSV</span></button>
+              <button onClick={() => fileInputRef.current?.click()}><Upload size={19} /><span>{lang === 'uk' ? 'Імпорт' : 'Import'}</span></button>
+            </div>
+          </section>
+        </>
+      )}
 
       <TodayPanel
         groups={todayPlanGroups}
