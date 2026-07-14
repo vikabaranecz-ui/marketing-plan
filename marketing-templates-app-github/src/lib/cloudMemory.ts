@@ -25,6 +25,7 @@ export interface CloudAppState {
   customTemplates: MarketingTemplate[];
   hiddenDefaultTemplateIds: string[];
   teamMembers: TeamMember[];
+  planNameOverrides: Record<string, string>;
   activeTemplateId: string;
   tasksByTemplate: Record<string, Task[]>;
 }
@@ -49,6 +50,10 @@ export const isCloudAppState = (value: unknown): value is CloudAppState => {
         typeof member.roleEn === 'string' &&
         typeof member.avatarColor === 'string'
       ))) &&
+    (state.planNameOverrides === undefined ||
+      (!!state.planNameOverrides &&
+        typeof state.planNameOverrides === 'object' &&
+        Object.values(state.planNameOverrides).every(name => typeof name === 'string'))) &&
     typeof state.activeTemplateId === 'string' &&
     !!state.tasksByTemplate &&
     typeof state.tasksByTemplate === 'object'

@@ -3,7 +3,7 @@ import {
   Megaphone, Globe, Compass, BookOpen, Calendar, Search, Plus, 
   Download, Upload, Languages, RotateCcw, FileText, AlertTriangle,
   Sun, Moon, Copy, Trash2, Info, X, ChevronDown, ChevronRight,
-  Menu, Eye, EyeOff, Table, Users, Cloud, CloudOff, LoaderCircle
+  Menu, Eye, EyeOff, Table, Users, Cloud, CloudOff, LoaderCircle, Pencil
 } from 'lucide-react';
 import './App.css';
 import type { Task, MarketingTemplate, ActiveTab, ZoomLevel, Language, TeamMember } from './types';
@@ -66,6 +66,9 @@ function App() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(() =>
     getLocalStorage<TeamMember[]>('gantt_team_members', TEAM_MEMBERS)
   );
+  const [planNameOverrides, setPlanNameOverrides] = useState<Record<string, string>>(() =>
+    getLocalStorage<Record<string, string>>('gantt_plan_name_overrides', {})
+  );
   
   // Active Project Plan id
   const [activeTemplateId, setActiveTemplateId] = useState<string>(() => 
@@ -86,6 +89,7 @@ function App() {
     customTemplates,
     hiddenDefaultTemplateIds,
     teamMembers,
+    planNameOverrides,
     activeTemplateId,
   });
   
@@ -157,6 +161,8 @@ function App() {
   );
   const allTemplates = [...visibleDefaultTemplates, ...customTemplates];
   const activeTemplate = allTemplates.find(t => t.id === activeTemplateId) || allTemplates[0] || DEFAULT_TEMPLATES[0];
+  const getPlanTitle = (template: MarketingTemplate) =>
+    planNameOverrides[template.id] || (lang === 'uk' ? template.titleUa : template.titleEn);
 
   // Load tasks when activeTemplateId changes
   useEffect(() => {
@@ -196,6 +202,10 @@ function App() {
     localStorage.setItem('gantt_team_members', JSON.stringify(teamMembers));
   }, [teamMembers]);
 
+  useEffect(() => {
+    localStorage.setItem('gantt_plan_name_overrides', JSON.stringify(planNameOverrides));
+  }, [planNameOverrides]);
+
   // Save Language changes
   useEffect(() => {
     localStorage.setItem('gantt_lang', JSON.stringify(lang));
@@ -228,8 +238,10 @@ function App() {
           localStorage.setItem('gantt_custom_templates', JSON.stringify(cloudState.customTemplates));
           const restoredHiddenDefaultTemplateIds = cloudState.hiddenDefaultTemplateIds ?? [];
           const restoredTeamMembers = cloudState.teamMembers ?? TEAM_MEMBERS;
+          const restoredPlanNameOverrides = cloudState.planNameOverrides ?? {};
           localStorage.setItem('gantt_hidden_default_templates', JSON.stringify(restoredHiddenDefaultTemplateIds));
           localStorage.setItem('gantt_team_members', JSON.stringify(restoredTeamMembers));
+          localStorage.setItem('gantt_plan_name_overrides', JSON.stringify(restoredPlanNameOverrides));
           localStorage.setItem('gantt_active_template_id', JSON.stringify(cloudState.activeTemplateId));
 
           const restoredTemplates = [
@@ -250,6 +262,7 @@ function App() {
           setCustomTemplates(cloudState.customTemplates);
           setHiddenDefaultTemplateIds(restoredHiddenDefaultTemplateIds);
           setTeamMembers(restoredTeamMembers);
+          setPlanNameOverrides(restoredPlanNameOverrides);
           setActiveTemplateId(restoredTemplateId);
           setTasks(restoredTasks);
           setTasksTemplateId(restoredTemplateId);
@@ -273,6 +286,7 @@ function App() {
             customTemplates: initial.customTemplates,
             hiddenDefaultTemplateIds: initial.hiddenDefaultTemplateIds,
             teamMembers: initial.teamMembers,
+            planNameOverrides: initial.planNameOverrides,
             activeTemplateId: initial.activeTemplateId,
             tasksByTemplate,
           };
@@ -324,6 +338,7 @@ function App() {
         customTemplates,
         hiddenDefaultTemplateIds,
         teamMembers,
+        planNameOverrides,
         activeTemplateId,
         tasksByTemplate,
       };
@@ -341,7 +356,7 @@ function App() {
         window.clearTimeout(cloudSaveTimerRef.current);
       }
     };
-  }, [activeTemplateId, customTemplates, hiddenDefaultTemplateIds, lang, showOnboarding, tasks, tasksTemplateId, teamMembers, theme]);
+  }, [activeTemplateId, customTemplates, hiddenDefaultTemplateIds, lang, planNameOverrides, showOnboarding, tasks, tasksTemplateId, teamMembers, theme]);
 
   // Toast notifier helper
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
@@ -351,6 +366,20 @@ function App() {
 
   const handleTemplateSelect = (id: string) => {
     setActiveTemplateId(id);
+  };
+
+  const handleRenamePlan = (templateId: string) => {
+    const template = allTemplates.find(item => item.id === templateId);
+    if (!template) return;
+
+    const newName = prompt(
+      lang === 'uk' ? 'Введіть нову назву плану:' : 'Enter a new plan name:',
+      getPlanTitle(template),
+    )?.trim();
+    if (!newName || newName === getPlanTitle(template)) return;
+
+    setPlanNameOverrides(prev => ({ ...prev, [templateId]: newName }));
+    showToast(lang === 'uk' ? 'Назву плану оновлено' : 'Plan name updated');
   };
 
   const handleAddTeamMember = () => {
@@ -672,7 +701,7 @@ function App() {
 
   // 2. DUPLICATE Active Project Plan
   const handleDuplicateActivePlan = () => {
-    const activeTitle = activeTemplate[`title${lang === 'uk' ? 'Ua' : 'En'}` as keyof MarketingTemplate];
+    const activeTitle = getPlanTitle(activeTemplate);
     const newTitle = prompt(
       lang === 'uk' 
         ? 'Введіть назву для копії плану:' 
@@ -727,7 +756,7 @@ function App() {
     const template = defaultTemplate ?? customTemplates.find(t => t.id === templateId);
     if (!template) return;
 
-    const templateTitle = lang === 'uk' ? template.titleUa : template.titleEn;
+    const templateTitle = getPlanTitle(template);
     const confirmDel = confirm(`${getTranslation(lang, 'confirmDeletePlan')}\n\n${templateTitle}`);
     if (!confirmDel) return;
 
@@ -736,6 +765,11 @@ function App() {
     } else {
       setCustomTemplates(prev => prev.filter(t => t.id !== templateId));
     }
+    setPlanNameOverrides(prev => {
+      const next = { ...prev };
+      delete next[templateId];
+      return next;
+    });
     localStorage.removeItem(`gantt_tasks_${templateId}`);
 
     if (activeTemplateId === templateId) {
@@ -751,7 +785,7 @@ function App() {
       lang === 'uk' 
         ? 'Введіть назву для вашого шаблону:' 
         : 'Enter a name for your custom template:',
-      `${activeTemplate[`title${lang === 'uk' ? 'Ua' : 'En'}` as keyof MarketingTemplate]} - Копія`
+      `${getPlanTitle(activeTemplate)} - ${lang === 'uk' ? 'Копія' : 'Copy'}`
     );
 
     if (!titlePrompt) return;
@@ -861,7 +895,7 @@ function App() {
   const averageProgress = tasks.length
     ? Math.round(tasks.reduce((sum, task) => sum + (task.isMilestone ? 0 : task.progress), 0) / tasks.length)
     : 0;
-  const activeTemplateTitle = lang === 'uk' ? activeTemplate.titleUa : activeTemplate.titleEn;
+  const activeTemplateTitle = getPlanTitle(activeTemplate);
   const activeTemplateDescription = lang === 'uk' ? activeTemplate.descriptionUa : activeTemplate.descriptionEn;
   const activeFiltersCount = [
     searchQuery.trim() ? 'search' : null,
@@ -928,15 +962,23 @@ function App() {
                         {renderTemplateIcon(t.iconName)}
                       </div>
                       <div className="template-details">
-                        <h4>{lang === 'uk' ? t.titleUa : t.titleEn}</h4>
+                        <h4>{getPlanTitle(t)}</h4>
                         <span>{lang === 'uk' ? t.categoryUa : t.categoryEn}</span>
                       </div>
+                    </button>
+                    <button
+                      className="template-edit-btn"
+                      onClick={() => handleRenamePlan(t.id)}
+                      title={lang === 'uk' ? 'Перейменувати план' : 'Rename plan'}
+                      aria-label={`${lang === 'uk' ? 'Перейменувати план' : 'Rename plan'}: ${getPlanTitle(t)}`}
+                    >
+                      <Pencil size={13} />
                     </button>
                     <button
                       className="template-delete-btn"
                       onClick={() => handleDeletePlan(t.id)}
                       title={getTranslation(lang, 'deletePlan')}
-                      aria-label={`${getTranslation(lang, 'deletePlan')}: ${lang === 'uk' ? t.titleUa : t.titleEn}`}
+                      aria-label={`${getTranslation(lang, 'deletePlan')}: ${getPlanTitle(t)}`}
                     >
                       <Trash2 size={14} />
                     </button>
@@ -973,15 +1015,23 @@ function App() {
                         {renderTemplateIcon(t.iconName)}
                       </div>
                       <div className="template-details">
-                        <h4>{t.titleUa}</h4>
+                        <h4>{getPlanTitle(t)}</h4>
                         <span>{lang === 'uk' ? t.categoryUa : t.categoryEn}</span>
                       </div>
+                    </button>
+                    <button
+                      className="template-edit-btn"
+                      onClick={() => handleRenamePlan(t.id)}
+                      title={lang === 'uk' ? 'Перейменувати план' : 'Rename plan'}
+                      aria-label={`${lang === 'uk' ? 'Перейменувати план' : 'Rename plan'}: ${getPlanTitle(t)}`}
+                    >
+                      <Pencil size={13} />
                     </button>
                     <button
                       className="template-delete-btn"
                       onClick={() => handleDeletePlan(t.id)}
                       title={getTranslation(lang, 'deletePlan')}
-                      aria-label={`${getTranslation(lang, 'deletePlan')}: ${lang === 'uk' ? t.titleUa : t.titleEn}`}
+                      aria-label={`${getTranslation(lang, 'deletePlan')}: ${getPlanTitle(t)}`}
                     >
                       <Trash2 size={14} />
                     </button>
