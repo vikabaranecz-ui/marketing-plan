@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import type { Task, TaskComment, SubTask, Language } from '../types';
-import { TEAM_MEMBERS } from '../data/templatesData';
+import type { Task, TaskComment, SubTask, Language, TeamMember } from '../types';
 import { getTranslation } from '../utils/locales';
 import { X, Plus, Trash2, CheckSquare, MessageSquare, AlertTriangle, Send, Copy } from 'lucide-react';
 
@@ -12,6 +11,7 @@ interface TaskDetailsDrawerProps {
   onDelete: (id: string) => void;
   tasks: Task[];
   lang: Language;
+  teamMembers: TeamMember[];
 }
 
 const parseLocalDate = (dateStr: string): Date => {
@@ -45,11 +45,12 @@ export default function TaskDetailsDrawer({
   onClone,
   onDelete,
   tasks,
-  lang
+  lang,
+  teamMembers,
 }: TaskDetailsDrawerProps) {
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [newCommentContent, setNewCommentContent] = useState('');
-  const [commenterName, setCommenterName] = useState('Olena'); // defaults to PM
+  const [commenterName, setCommenterName] = useState(teamMembers[0]?.name ?? 'User');
 
   // Color palette options
   const colorOptions = [
@@ -144,7 +145,7 @@ export default function TaskDetailsDrawer({
     e.preventDefault();
     if (!newCommentContent.trim()) return;
 
-    const member = TEAM_MEMBERS.find(m => m.name === commenterName);
+    const member = teamMembers.find(m => m.name === commenterName);
     const avatarColor = member ? member.avatarColor : '#6b7280';
     
     const now = new Date();
@@ -296,7 +297,8 @@ export default function TaskDetailsDrawer({
                 value={task.assignee}
                 onChange={e => handleFieldChange('assignee', e.target.value)}
               >
-                {TEAM_MEMBERS.map(m => (
+                <option value="">{lang === 'uk' ? 'Без виконавця' : 'Unassigned'}</option>
+                {teamMembers.map(m => (
                   <option key={m.name} value={m.name}>
                     {m.name}
                   </option>
@@ -456,7 +458,7 @@ export default function TaskDetailsDrawer({
                       }}
                     >
                       <option value="">👤 {lang === 'uk' ? 'Виконавець' : 'Assignee'}</option>
-                      {TEAM_MEMBERS.map(m => (
+                      {teamMembers.map(m => (
                         <option key={m.name} value={m.name}>{m.name}</option>
                       ))}
                     </select>
@@ -485,7 +487,7 @@ export default function TaskDetailsDrawer({
                   value={commenterName}
                   onChange={e => setCommenterName(e.target.value)}
                 >
-                  {TEAM_MEMBERS.map(m => (
+                  {teamMembers.map(m => (
                     <option key={m.name} value={m.name}>
                       {m.name}
                     </option>

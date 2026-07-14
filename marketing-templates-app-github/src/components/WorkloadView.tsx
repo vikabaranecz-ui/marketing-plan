@@ -1,10 +1,10 @@
-import type { Task, Language } from '../types';
-import { TEAM_MEMBERS } from '../data/templatesData';
+import type { Task, Language, TeamMember } from '../types';
 import { getTranslation } from '../utils/locales';
 
 interface WorkloadViewProps {
   tasks: Task[];
   lang: Language;
+  teamMembers: TeamMember[];
 }
 
 // Timezone-safe local date utilities
@@ -19,10 +19,10 @@ const getDaysBetween = (d1: Date, d2: Date): number => {
   return Math.round((date2.getTime() - date1.getTime()) / (1000 * 60 * 60 * 24));
 };
 
-export default function WorkloadView({ tasks, lang }: WorkloadViewProps) {
+export default function WorkloadView({ tasks, lang, teamMembers }: WorkloadViewProps) {
   
   // Calculate stats for each team member
-  const memberWorkloads = TEAM_MEMBERS.map(member => {
+  const memberWorkloads = teamMembers.map(member => {
     const memberTasks = tasks.filter(t => t.assignee === member.name);
     
     // Calculate total days allocated (milestones are 0 days)

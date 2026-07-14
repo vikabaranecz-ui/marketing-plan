@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Language, MarketingTemplate, Task } from '../types';
+import type { Language, MarketingTemplate, Task, TeamMember } from '../types';
 import type { Database, Json } from './database.types';
 
 const supabaseUrl =
@@ -24,6 +24,7 @@ export interface CloudAppState {
   showOnboarding: boolean;
   customTemplates: MarketingTemplate[];
   hiddenDefaultTemplateIds: string[];
+  teamMembers: TeamMember[];
   activeTemplateId: string;
   tasksByTemplate: Record<string, Task[]>;
 }
@@ -40,6 +41,14 @@ export const isCloudAppState = (value: unknown): value is CloudAppState => {
     (state.hiddenDefaultTemplateIds === undefined ||
       (Array.isArray(state.hiddenDefaultTemplateIds) &&
         state.hiddenDefaultTemplateIds.every(id => typeof id === 'string'))) &&
+    (state.teamMembers === undefined ||
+      (Array.isArray(state.teamMembers) && state.teamMembers.every(member =>
+        !!member &&
+        typeof member.name === 'string' &&
+        typeof member.roleUa === 'string' &&
+        typeof member.roleEn === 'string' &&
+        typeof member.avatarColor === 'string'
+      ))) &&
     typeof state.activeTemplateId === 'string' &&
     !!state.tasksByTemplate &&
     typeof state.tasksByTemplate === 'object'

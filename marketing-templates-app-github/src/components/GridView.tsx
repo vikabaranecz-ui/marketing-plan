@@ -1,5 +1,4 @@
-import type { Task, Language } from '../types';
-import { TEAM_MEMBERS } from '../data/templatesData';
+import type { Task, Language, TeamMember } from '../types';
 import { getTranslation } from '../utils/locales';
 import { AlertTriangle, Plus, Trash2, Eye, Copy } from 'lucide-react';
 
@@ -11,6 +10,7 @@ interface GridViewProps {
   deleteTask: (id: string) => void;
   setSelectedTaskId: (id: string | null) => void;
   lang: Language;
+  teamMembers: TeamMember[];
 }
 
 // Timezone-safe local date utilities
@@ -45,7 +45,8 @@ export default function GridView({
   cloneTask,
   deleteTask,
   setSelectedTaskId,
-  lang
+  lang,
+  teamMembers,
 }: GridViewProps) {
 
   // Update date fields and keep scheduling logical
@@ -166,7 +167,8 @@ export default function GridView({
                       value={t.assignee}
                       onChange={e => updateTask({ ...t, assignee: e.target.value })}
                     >
-                      {TEAM_MEMBERS.map(m => (
+                      <option value="">{lang === 'uk' ? 'Без виконавця' : 'Unassigned'}</option>
+                      {teamMembers.map(m => (
                         <option key={m.name} value={m.name}>
                           {m.name} ({lang === 'uk' ? m.roleUa : m.roleEn})
                         </option>

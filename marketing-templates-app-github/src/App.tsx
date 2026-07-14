@@ -6,8 +6,8 @@ import {
   Menu, Eye, EyeOff, Table, Users, Cloud, CloudOff, LoaderCircle
 } from 'lucide-react';
 import './App.css';
-import type { Task, MarketingTemplate, ActiveTab, ZoomLevel, Language } from './types';
-import { DEFAULT_TEMPLATES } from './data/templatesData';
+import type { Task, MarketingTemplate, ActiveTab, ZoomLevel, Language, TeamMember } from './types';
+import { DEFAULT_TEMPLATES, TEAM_MEMBERS } from './data/templatesData';
 import { getTranslation } from './utils/locales';
 
 import GanttChart from './components/GanttChart';
@@ -63,6 +63,9 @@ function App() {
   const [hiddenDefaultTemplateIds, setHiddenDefaultTemplateIds] = useState<string[]>(() =>
     getLocalStorage<string[]>('gantt_hidden_default_templates', [])
   );
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(() =>
+    getLocalStorage<TeamMember[]>('gantt_team_members', TEAM_MEMBERS)
+  );
   
   // Active Project Plan id
   const [activeTemplateId, setActiveTemplateId] = useState<string>(() => 
@@ -82,11 +85,15 @@ function App() {
     showOnboarding,
     customTemplates,
     hiddenDefaultTemplateIds,
+    teamMembers,
     activeTemplateId,
   });
   
   // Dialog confirmation states
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [isTeamManagerOpen, setIsTeamManagerOpen] = useState(false);
+  const [newMemberName, setNewMemberName] = useState('');
+  const [newMemberRole, setNewMemberRole] = useState('');
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -185,6 +192,10 @@ function App() {
     localStorage.setItem('gantt_hidden_default_templates', JSON.stringify(hiddenDefaultTemplateIds));
   }, [hiddenDefaultTemplateIds]);
 
+  useEffect(() => {
+    localStorage.setItem('gantt_team_members', JSON.stringify(teamMembers));
+  }, [teamMembers]);
+
   // Save Language changes
   useEffect(() => {
     localStorage.setItem('gantt_lang', JSON.stringify(lang));
@@ -216,7 +227,9 @@ function App() {
           localStorage.setItem('gantt_show_onboarding', JSON.stringify(cloudState.showOnboarding));
           localStorage.setItem('gantt_custom_templates', JSON.stringify(cloudState.customTemplates));
           const restoredHiddenDefaultTemplateIds = cloudState.hiddenDefaultTemplateIds ?? [];
+          const restoredTeamMembers = cloudState.teamMembers ?? TEAM_MEMBERS;
           localStorage.setItem('gantt_hidden_default_templates', JSON.stringify(restoredHiddenDefaultTemplateIds));
+          localStorage.setItem('gantt_team_members', JSON.stringify(restoredTeamMembers));
           localStorage.setItem('gantt_active_template_id', JSON.stringify(cloudState.activeTemplateId));
 
           const restoredTemplates = [
@@ -236,6 +249,7 @@ function App() {
           setShowOnboarding(cloudState.showOnboarding);
           setCustomTemplates(cloudState.customTemplates);
           setHiddenDefaultTemplateIds(restoredHiddenDefaultTemplateIds);
+          setTeamMembers(restoredTeamMembers);
           setActiveTemplateId(restoredTemplateId);
           setTasks(restoredTasks);
           setTasksTemplateId(restoredTemplateId);
@@ -258,6 +272,7 @@ function App() {
             showOnboarding: initial.showOnboarding,
             customTemplates: initial.customTemplates,
             hiddenDefaultTemplateIds: initial.hiddenDefaultTemplateIds,
+            teamMembers: initial.teamMembers,
             activeTemplateId: initial.activeTemplateId,
             tasksByTemplate,
           };
@@ -308,6 +323,7 @@ function App() {
         showOnboarding,
         customTemplates,
         hiddenDefaultTemplateIds,
+        teamMembers,
         activeTemplateId,
         tasksByTemplate,
       };
@@ -325,7 +341,7 @@ function App() {
         window.clearTimeout(cloudSaveTimerRef.current);
       }
     };
-  }, [activeTemplateId, customTemplates, hiddenDefaultTemplateIds, lang, showOnboarding, tasks, tasksTemplateId, theme]);
+  }, [activeTemplateId, customTemplates, hiddenDefaultTemplateIds, lang, showOnboarding, tasks, tasksTemplateId, teamMembers, theme]);
 
   // Toast notifier helper
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
@@ -335,6 +351,64 @@ function App() {
 
   const handleTemplateSelect = (id: string) => {
     setActiveTemplateId(id);
+  };
+
+  const handleAddTeamMember = () => {
+    const name = newMemberName.trim();
+    const role = newMemberRole.trim();
+    if (!name) {
+      showToast(lang === 'uk' ? 'Введіть ім’я виконавця' : 'Enter an assignee name', 'error');
+      return;
+    }
+    if (teamMembers.some(member => member.name.toLocaleLowerCase() === name.toLocaleLowerCase())) {
+      showToast(lang === 'uk' ? 'Такий виконавець уже існує' : 'This assignee already exists', 'error');
+      return;
+    }
+
+    const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#3b82f6'];
+    const member: TeamMember = {
+      name,
+      roleUa: role || 'Учасник команди',
+      roleEn: role || 'Team Member',
+      avatarColor: colors[teamMembers.length % colors.length],
+    };
+    setTeamMembers(prev => [...prev, member]);
+    setNewMemberName('');
+    setNewMemberRole('');
+    showToast(lang === 'uk' ? 'Виконавця додано' : 'Assignee added');
+  };
+
+  const handleDeleteTeamMember = (memberName: string) => {
+    const assignedCount = tasks.filter(task =>
+      task.assignee === memberName || task.subtasks.some(subtask => subtask.assignee === memberName)
+    ).length;
+    const message = lang === 'uk'
+      ? `Видалити виконавця «${memberName}»? Призначення буде знято${assignedCount ? ` з ${assignedCount} завдань поточного плану` : ''}.`
+      : `Delete assignee “${memberName}”? They will be unassigned${assignedCount ? ` from ${assignedCount} tasks in the current plan` : ''}.`;
+    if (!confirm(message)) return;
+
+    const removeAssignments = (templateTasks: Task[]) => templateTasks.map(task => ({
+      ...task,
+      assignee: task.assignee === memberName ? '' : task.assignee,
+      subtasks: task.subtasks.map(subtask => ({
+        ...subtask,
+        assignee: subtask.assignee === memberName ? undefined : subtask.assignee,
+      })),
+    }));
+
+    allTemplates.forEach(template => {
+      const storedTasks = getLocalStorage<Task[] | null>(`gantt_tasks_${template.id}`, null);
+      const sourceTasks = template.id === activeTemplateId ? tasks : (storedTasks ?? template.tasks);
+      localStorage.setItem(`gantt_tasks_${template.id}`, JSON.stringify(removeAssignments(sourceTasks)));
+    });
+    setTasks(prev => removeAssignments(prev));
+    setCustomTemplates(prev => prev.map(template => ({
+      ...template,
+      tasks: removeAssignments(template.tasks),
+    })));
+    setTeamMembers(prev => prev.filter(member => member.name !== memberName));
+    if (filterAssignee === memberName) setFilterAssignee('all');
+    showToast(lang === 'uk' ? 'Виконавця видалено' : 'Assignee deleted');
   };
 
   // Add Task
@@ -357,7 +431,7 @@ function App() {
       endDate: end,
       progress: 0,
       status: status,
-      assignee: 'Anna',
+      assignee: teamMembers[0]?.name ?? '',
       isMilestone: false,
       color: '#6366f1',
       subtasks: [],
@@ -533,7 +607,17 @@ function App() {
       'Reset template to default'
     );
 
-    setTasks(activeTemplate.tasks);
+    const availableAssignees = new Set(teamMembers.map(member => member.name));
+    setTasks(activeTemplate.tasks.map(task => ({
+      ...task,
+      assignee: availableAssignees.has(task.assignee) ? task.assignee : '',
+      subtasks: task.subtasks.map(subtask => ({
+        ...subtask,
+        assignee: subtask.assignee && availableAssignees.has(subtask.assignee)
+          ? subtask.assignee
+          : undefined,
+      })),
+    })));
     localStorage.removeItem(`gantt_tasks_${activeTemplateId}`);
     setIsResetConfirmOpen(false);
     setSelectedTaskId(null);
@@ -572,7 +656,7 @@ function App() {
           endDate: today,
           progress: 0,
           status: 'todo',
-          assignee: 'Anna',
+          assignee: teamMembers[0]?.name ?? '',
           isMilestone: false,
           color: '#6366f1',
           subtasks: [],
@@ -769,7 +853,8 @@ function App() {
   const filteredTasks = tasks.filter(t => {
     const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           t.assignee.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesAssignee = filterAssignee === 'all' || t.assignee === filterAssignee;
+    const matchesAssignee = filterAssignee === 'all'
+      || (filterAssignee === '__unassigned__' ? !t.assignee : t.assignee === filterAssignee);
     const matchesStatus = filterStatus === 'all' || t.status === filterStatus;
     return matchesSearch && matchesAssignee && matchesStatus;
   });
@@ -1018,11 +1103,20 @@ function App() {
                 title={lang === 'uk' ? 'Фільтр за виконавцем' : 'Filter by Assignee'}
               >
                 <option value="all">{lang === 'uk' ? 'Всі виконавці' : 'All Assignees'}</option>
-                <option value="Anna">Anna</option>
-                <option value="Bogdan">Bogdan</option>
-                <option value="Olena">Olena</option>
-                <option value="Yuri">Yuri</option>
+                <option value="__unassigned__">{lang === 'uk' ? 'Без виконавця' : 'Unassigned'}</option>
+                {teamMembers.map(member => (
+                  <option key={member.name} value={member.name}>{member.name}</option>
+                ))}
               </select>
+
+              <button
+                className="btn-icon"
+                onClick={() => setIsTeamManagerOpen(true)}
+                title={lang === 'uk' ? 'Керувати виконавцями' : 'Manage assignees'}
+                aria-label={lang === 'uk' ? 'Керувати виконавцями' : 'Manage assignees'}
+              >
+                <Users size={16} />
+              </button>
 
               <select
                 className="header-filter-select"
@@ -1228,6 +1322,7 @@ function App() {
               deleteTask={handleDeleteTask}
               setSelectedTaskId={setSelectedTaskId}
               lang={lang}
+              teamMembers={teamMembers}
             />
           )}
 
@@ -1238,6 +1333,7 @@ function App() {
               setSelectedTaskId={setSelectedTaskId}
               lang={lang}
               addTask={handleAddTask}
+              teamMembers={teamMembers}
             />
           )}
 
@@ -1245,6 +1341,7 @@ function App() {
             <WorkloadView
               tasks={filteredTasks}
               lang={lang}
+              teamMembers={teamMembers}
             />
           )}
         </div>
@@ -1273,7 +1370,83 @@ function App() {
           onDelete={handleDeleteTask}
           tasks={tasks}
           lang={lang}
+          teamMembers={teamMembers}
         />
+      )}
+
+      {/* Assignee management modal */}
+      {isTeamManagerOpen && (
+        <>
+          <div className="dialog-backdrop" onClick={() => setIsTeamManagerOpen(false)} />
+          <div className="dialog-container team-manager-dialog" role="dialog" aria-modal="true" aria-labelledby="team-manager-title">
+            <div className="team-manager-header">
+              <div>
+                <div className="dialog-header" id="team-manager-title">
+                  {lang === 'uk' ? 'Виконавці' : 'Assignees'}
+                </div>
+                <p>{lang === 'uk' ? 'Додавайте людей та керуйте призначеннями.' : 'Add people and manage assignments.'}</p>
+              </div>
+              <button className="btn-icon" onClick={() => setIsTeamManagerOpen(false)} aria-label={getTranslation(lang, 'close')}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="team-member-list">
+              {teamMembers.map(member => (
+                <div className="team-member-row" key={member.name}>
+                  <span className="team-member-avatar" style={{ backgroundColor: member.avatarColor }}>
+                    {member.name.slice(0, 2).toUpperCase()}
+                  </span>
+                  <span className="team-member-copy">
+                    <strong>{member.name}</strong>
+                    <small>{lang === 'uk' ? member.roleUa : member.roleEn}</small>
+                  </span>
+                  <button
+                    className="btn-icon danger-icon"
+                    onClick={() => handleDeleteTeamMember(member.name)}
+                    title={lang === 'uk' ? 'Видалити виконавця' : 'Delete assignee'}
+                    aria-label={`${lang === 'uk' ? 'Видалити виконавця' : 'Delete assignee'}: ${member.name}`}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              ))}
+              {teamMembers.length === 0 && (
+                <div className="empty-mini">
+                  {lang === 'uk' ? 'Виконавців ще немає' : 'No assignees yet'}
+                </div>
+              )}
+            </div>
+
+            <form
+              className="team-member-form"
+              onSubmit={event => {
+                event.preventDefault();
+                handleAddTeamMember();
+              }}
+            >
+              <input
+                className="form-control"
+                autoFocus
+                value={newMemberName}
+                onChange={event => setNewMemberName(event.target.value)}
+                placeholder={lang === 'uk' ? 'Ім’я виконавця' : 'Assignee name'}
+                aria-label={lang === 'uk' ? 'Ім’я виконавця' : 'Assignee name'}
+              />
+              <input
+                className="form-control"
+                value={newMemberRole}
+                onChange={event => setNewMemberRole(event.target.value)}
+                placeholder={lang === 'uk' ? 'Роль (необов’язково)' : 'Role (optional)'}
+                aria-label={lang === 'uk' ? 'Роль виконавця' : 'Assignee role'}
+              />
+              <button className="btn btn-primary" type="submit">
+                <Plus size={16} />
+                {lang === 'uk' ? 'Додати виконавця' : 'Add assignee'}
+              </button>
+            </form>
+          </div>
+        </>
       )}
 
       {/* Confirmation Reset Modal */}

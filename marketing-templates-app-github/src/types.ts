@@ -43,6 +43,13 @@ export interface MarketingTemplate {
   tasks: Task[];
 }
 
+export interface TeamMember {
+  name: string;
+  roleUa: string;
+  roleEn: string;
+  avatarColor: string;
+}
+
 export type ZoomLevel = 'days' | 'weeks' | 'months';
 export type ActiveTab = 'gantt' | 'grid' | 'kanban' | 'workload';
 export type Language = 'uk' | 'en';

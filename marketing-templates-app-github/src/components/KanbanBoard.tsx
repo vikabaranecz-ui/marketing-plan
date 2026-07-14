@@ -1,6 +1,5 @@
 import React from 'react';
-import type { Task, Language } from '../types';
-import { TEAM_MEMBERS } from '../data/templatesData';
+import type { Task, Language, TeamMember } from '../types';
 import { getTranslation } from '../utils/locales';
 import { Calendar, Eye, Plus } from 'lucide-react';
 
@@ -10,6 +9,7 @@ interface KanbanBoardProps {
   setSelectedTaskId: (id: string | null) => void;
   lang: Language;
   addTask: (status: Task['status']) => void;
+  teamMembers: TeamMember[];
 }
 
 export default function KanbanBoard({
@@ -17,7 +17,8 @@ export default function KanbanBoard({
   updateTask,
   setSelectedTaskId,
   lang,
-  addTask
+  addTask,
+  teamMembers,
 }: KanbanBoardProps) {
 
   const columns: { id: Task['status']; titleKey: 'todo' | 'in_progress' | 'in_review' | 'done'; color: string }[] = [
@@ -51,7 +52,7 @@ export default function KanbanBoard({
   };
 
   const getAssigneeColor = (name: string): string => {
-    const member = TEAM_MEMBERS.find(m => m.name === name);
+    const member = teamMembers.find(m => m.name === name);
     return member ? member.avatarColor : '#6b7280';
   };
 

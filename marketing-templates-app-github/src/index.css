@@ -2410,6 +2410,84 @@ textarea:focus-visible {
   gap: 12px;
 }
 
+.team-manager-dialog {
+  width: 480px;
+  max-height: min(680px, 90vh);
+}
+
+.team-manager-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.team-manager-header p {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.team-member-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.team-member-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-hover);
+}
+
+.team-member-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.team-member-copy {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.team-member-copy strong {
+  font-size: 0.88rem;
+}
+
+.team-member-copy small {
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-member-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.team-member-form .btn {
+  grid-column: 1 / -1;
+}
+
 /* Dynamic onboarding notice at the bottom */
 .onboarding-hint-bar {
   background-color: var(--primary-light);
@@ -2664,6 +2742,14 @@ textarea:focus-visible {
   .drawer-footer,
   .dialog-footer {
     flex-direction: column;
+  }
+
+  .team-member-form {
+    grid-template-columns: 1fr;
+  }
+
+  .team-member-form .btn {
+    grid-column: 1;
   }
 }
 .undo-dropdown-overlay {

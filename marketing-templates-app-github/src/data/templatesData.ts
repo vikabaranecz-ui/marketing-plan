@@ -1,4 +1,4 @@
-import type { MarketingTemplate } from '../types';
+import type { MarketingTemplate, TeamMember } from '../types';
 
 // Let's generate dates dynamically relative to July 2026 so they are always current and visible
 const getRelativeDateString = (daysOffset: number): string => {
@@ -543,7 +543,7 @@ export const DEFAULT_TEMPLATES: MarketingTemplate[] = [
   }
 ];
 
-export const TEAM_MEMBERS = [
+export const TEAM_MEMBERS: TeamMember[] = [
   { name: 'Anna', roleUa: 'Контент-маркетолог', roleEn: 'Content Marketer', avatarColor: '#6366f1' },
   { name: 'Bogdan', roleUa: 'SEO спеціаліст', roleEn: 'SEO Specialist', avatarColor: '#8b5cf6' },
   { name: 'Olena', roleUa: 'Маркетинг-директор', roleEn: 'Marketing Director', avatarColor: '#ec4899' },
