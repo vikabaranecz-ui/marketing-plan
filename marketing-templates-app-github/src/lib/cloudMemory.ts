@@ -73,12 +73,10 @@ const createOrRestoreCloudUser = async (): Promise<string> => {
   } = await supabase.auth.getSession();
 
   if (sessionError) throw sessionError;
-  if (session?.user.id) return session.user.id;
-
-  const { data, error } = await supabase.auth.signInAnonymously();
-  if (error) throw error;
-  if (!data.user?.id) throw new Error('Supabase did not return a user');
-  return data.user.id;
+  if (!session?.user.id || session.user.is_anonymous) {
+    throw new Error('A permanent account is required for cloud memory');
+  }
+  return session.user.id;
 };
 
 export const ensureCloudUser = (): Promise<string> => {
@@ -89,6 +87,23 @@ export const ensureCloudUser = (): Promise<string> => {
     });
   }
   return cloudUserPromise;
+};
+
+export const sendEmailLoginLink = async (email: string): Promise<void> => {
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      shouldCreateUser: true,
+      emailRedirectTo: window.location.origin,
+    },
+  });
+  if (error) throw error;
+};
+
+export const signOutCloudUser = async (): Promise<void> => {
+  cloudUserPromise = null;
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
 };
 
 export const loadCloudState = async (userId: string): Promise<CloudAppState | null> => {

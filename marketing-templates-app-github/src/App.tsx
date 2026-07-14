@@ -4,7 +4,7 @@ import {
   Download, Upload, Languages, RotateCcw, FileText, AlertTriangle,
   Sun, Moon, Copy, Trash2, Info, X, ChevronDown, ChevronRight,
   Menu, Eye, EyeOff, Table, Users, Cloud, CloudOff, LoaderCircle, Pencil,
-  Archive, CalendarRange, MoreHorizontal, SlidersHorizontal, FolderOpen
+  Archive, CalendarRange, MoreHorizontal, SlidersHorizontal, FolderOpen, LogOut, CircleUserRound
 } from 'lucide-react';
 import './App.css';
 import type { Task, MarketingTemplate, ActiveTab, ZoomLevel, Language, TeamMember } from './types';
@@ -39,7 +39,12 @@ const getLocalStorage = <T,>(key: string, initialValue: T): T => {
   }
 };
 
-function App() {
+interface AppProps {
+  accountEmail: string;
+  onSignOut: () => Promise<void>;
+}
+
+function App({ accountEmail, onSignOut }: AppProps) {
   // Theme & Language Settings
   const [theme, setTheme] = useState<'light' | 'dark'>(() => getLocalStorage<'light' | 'dark'>('gantt_theme', 'light'));
   const [lang, setLang] = useState<Language>(() => getLocalStorage<Language>('gantt_lang', 'uk'));
@@ -95,17 +100,6 @@ function App() {
   const cloudUserIdRef = useRef<string | null>(null);
   const cloudHydratedRef = useRef(false);
   const cloudSaveTimerRef = useRef<number | null>(null);
-  const initialLocalStateRef = useRef({
-    theme,
-    lang,
-    showOnboarding,
-    customTemplates,
-    hiddenDefaultTemplateIds,
-    teamMembers,
-    planNameOverrides,
-    archivedPlanIds,
-    activeTemplateId,
-  });
   
   // Dialog confirmation states
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
@@ -252,10 +246,30 @@ function App() {
       setCloudStatus('connecting');
       try {
         const userId = await ensureCloudUser();
-        const cloudState = await loadCloudState(userId);
+        let cloudState = await loadCloudState(userId);
         if (cancelled) return;
 
         cloudUserIdRef.current = userId;
+
+        if (!cloudState) {
+          cloudState = {
+            version: 1,
+            theme: 'light',
+            lang: 'uk',
+            showOnboarding: true,
+            customTemplates: [],
+            hiddenDefaultTemplateIds: [],
+            teamMembers: TEAM_MEMBERS,
+            planNameOverrides: {},
+            archivedPlanIds: [],
+            activeTemplateId: 'campaign-plan',
+            tasksByTemplate: Object.fromEntries(
+              DEFAULT_TEMPLATES.map(template => [template.id, template.tasks]),
+            ),
+          };
+          await saveCloudState(userId, cloudState);
+          if (cancelled) return;
+        }
 
         if (cloudState) {
           Object.entries(cloudState.tasksByTemplate).forEach(([templateId, templateTasks]) => {
@@ -298,33 +312,6 @@ function App() {
           setActiveTemplateId(restoredTemplateId);
           setTasks(restoredTasks);
           setTasksTemplateId(restoredTemplateId);
-        } else {
-          const initial = initialLocalStateRef.current;
-          const localTemplates = [
-            ...DEFAULT_TEMPLATES.filter(template => !initial.hiddenDefaultTemplateIds.includes(template.id)),
-            ...initial.customTemplates,
-          ];
-          const tasksByTemplate = Object.fromEntries(
-            localTemplates.map(template => {
-              const stored = getLocalStorage<Task[] | null>(`gantt_tasks_${template.id}`, null);
-              return [template.id, stored ?? template.tasks];
-            }),
-          );
-          const localState: CloudAppState = {
-            version: 1,
-            theme: initial.theme,
-            lang: initial.lang,
-            showOnboarding: initial.showOnboarding,
-            customTemplates: initial.customTemplates,
-            hiddenDefaultTemplateIds: initial.hiddenDefaultTemplateIds,
-            teamMembers: initial.teamMembers,
-            planNameOverrides: initial.planNameOverrides,
-            archivedPlanIds: initial.archivedPlanIds,
-            activeTemplateId: initial.activeTemplateId,
-            tasksByTemplate,
-          };
-          await saveCloudState(userId, localState);
-          if (cancelled) return;
         }
 
         cloudHydratedRef.current = true;
@@ -1505,6 +1492,18 @@ function App() {
                 {cloudStatus === 'error' && <CloudOff size={16} />}
               </button>
 
+              <div className="account-chip" title={accountEmail}>
+                <CircleUserRound size={16} />
+                <span>{accountEmail}</span>
+                <button
+                  onClick={() => void onSignOut()}
+                  title={lang === 'uk' ? 'Вийти з кабінету' : 'Sign out'}
+                  aria-label={lang === 'uk' ? 'Вийти з кабінету' : 'Sign out'}
+                >
+                  <LogOut size={14} />
+                </button>
+              </div>
+
               {/* Theme Toggle */}
               <button 
                 className="btn-icon" 
@@ -1831,7 +1830,7 @@ function App() {
               {cloudStatus === 'synced' ? <Cloud size={17} /> : cloudStatus === 'error' ? <CloudOff size={17} /> : <LoaderCircle size={17} />}
               <span>
                 <strong>{cloudStatus === 'synced' ? (lang === 'uk' ? 'Збережено' : 'Saved') : cloudStatus === 'error' ? (lang === 'uk' ? 'Немає синхронізації' : 'Sync unavailable') : (lang === 'uk' ? 'Синхронізація…' : 'Syncing…')}</strong>
-                <small>Supabase</small>
+                <small>{accountEmail}</small>
               </span>
             </div>
             <div className="mobile-action-grid">
@@ -1845,6 +1844,7 @@ function App() {
               <button onClick={handleExportJSON}><Download size={19} /><span>JSON</span></button>
               <button onClick={handleExportCSV}><FileText size={19} /><span>CSV</span></button>
               <button onClick={() => fileInputRef.current?.click()}><Upload size={19} /><span>{lang === 'uk' ? 'Імпорт' : 'Import'}</span></button>
+              <button onClick={() => { setIsMobileMenuOpen(false); void onSignOut(); }}><LogOut size={19} /><span>{lang === 'uk' ? 'Вийти' : 'Sign out'}</span></button>
             </div>
           </section>
         </>
