@@ -17,6 +17,7 @@ import KanbanBoard from './components/KanbanBoard';
 import WorkloadView from './components/WorkloadView';
 import TaskDetailsDrawer from './components/TaskDetailsDrawer';
 import PlansCalendarView, { type PlanCalendarItem } from './components/PlansCalendarView';
+import TodayPanel, { type TodayPlanGroup } from './components/TodayPanel';
 import {
   ensureCloudUser,
   loadCloudState,
@@ -83,6 +84,7 @@ function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tasksTemplateId, setTasksTemplateId] = useState(activeTemplateId);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [pendingTodayTask, setPendingTodayTask] = useState<{ planId: string; taskId: string } | null>(null);
   const [cloudStatus, setCloudStatus] = useState<CloudSyncStatus>('connecting');
   const cloudUserIdRef = useRef<string | null>(null);
   const cloudHydratedRef = useRef(false);
@@ -190,6 +192,14 @@ function App() {
     setSelectedTaskId(null);
     setHistory([]); // Reset undo history stack on project swap
   }, [activeTemplateId, activeTemplate.tasks]);
+
+  useEffect(() => {
+    if (!pendingTodayTask || pendingTodayTask.planId !== activeTemplateId || tasksTemplateId !== activeTemplateId) return;
+    if (tasks.some(task => task.id === pendingTodayTask.taskId && !task.archived)) {
+      setSelectedTaskId(pendingTodayTask.taskId);
+    }
+    setPendingTodayTask(null);
+  }, [activeTemplateId, pendingTodayTask, tasks, tasksTemplateId]);
 
   // Save tasks to localStorage on task changes
   useEffect(() => {
@@ -384,6 +394,21 @@ function App() {
 
   const handleTemplateSelect = (id: string) => {
     setActiveTemplateId(id);
+  };
+
+  const handleOpenTodayPlan = (planId: string) => {
+    setActiveTemplateId(planId);
+    setActiveTab('gantt');
+  };
+
+  const handleOpenTodayTask = (planId: string, taskId: string) => {
+    setActiveTab('gantt');
+    if (planId === activeTemplateId && tasksTemplateId === activeTemplateId) {
+      setSelectedTaskId(taskId);
+      return;
+    }
+    setPendingTodayTask({ planId, taskId });
+    setActiveTemplateId(planId);
   };
 
   const handleArchivePlan = (templateId: string) => {
@@ -986,6 +1011,49 @@ function App() {
       color: activeTemplateTasks.find(task => task.color)?.color ?? '#6366f1',
     };
   });
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const todayPlanGroups: TodayPlanGroup[] = allTemplates.flatMap(template => {
+    const templateTasks = template.id === activeTemplateId
+      ? tasks
+      : getLocalStorage<Task[] | null>(`gantt_tasks_${template.id}`, null) ?? template.tasks;
+    const availableTasks = templateTasks.filter(task => !task.archived);
+    const items = availableTasks.flatMap(task => {
+      const taskItems = task.startDate <= today && task.endDate >= today
+        ? [{
+            id: task.id,
+            parentTaskId: task.id,
+            title: task.title,
+            assignee: task.assignee,
+            status: task.status,
+            isSubtask: false,
+          }]
+        : [];
+      const subtaskItems = task.subtasks
+        .filter(subtask => {
+          const startDate = subtask.startDate ?? task.startDate;
+          const endDate = subtask.endDate ?? task.endDate;
+          return startDate <= today && endDate >= today;
+        })
+        .map(subtask => ({
+          id: subtask.id,
+          parentTaskId: task.id,
+          title: subtask.title,
+          assignee: subtask.assignee ?? task.assignee,
+          status: subtask.status ?? (subtask.completed ? 'done' as const : 'todo' as const),
+          isSubtask: true,
+        }));
+      return [...taskItems, ...subtaskItems];
+    });
+
+    if (items.length === 0) return [];
+    return [{
+      id: template.id,
+      title: getPlanTitle(template),
+      color: availableTasks.find(task => task.color)?.color ?? '#6366f1',
+      items,
+    }];
+  });
   const activeTemplateTitle = getPlanTitle(activeTemplate);
   const activeTemplateDescription = lang === 'uk' ? activeTemplate.descriptionUa : activeTemplate.descriptionEn;
   const activeFiltersCount = [
@@ -1554,6 +1622,13 @@ function App() {
           </div>
         )}
       </main>
+
+      <TodayPanel
+        groups={todayPlanGroups}
+        lang={lang}
+        onOpenPlan={handleOpenTodayPlan}
+        onOpenTask={handleOpenTodayTask}
+      />
 
       {/* Task Edit Side Drawer */}
       {selectedTask && (
