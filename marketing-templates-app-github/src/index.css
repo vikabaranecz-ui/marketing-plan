@@ -3254,6 +3254,10 @@ textarea:focus-visible {
   backdrop-filter: blur(16px);
 }
 
+.today-panel-scrim {
+  display: none;
+}
+
 .theme-dark .today-panel {
   box-shadow: 0 18px 55px rgba(0, 0, 0, 0.55);
 }
@@ -4679,6 +4683,17 @@ textarea:focus-visible {
 }
 
 @media (max-width: 900px) {
+  .today-panel-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 21;
+    display: block;
+    padding: 0;
+    border: 0;
+    background: rgba(15, 23, 42, 0.16);
+    backdrop-filter: blur(1px);
+  }
+
   html,
   body,
   #root {

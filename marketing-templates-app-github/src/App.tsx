@@ -144,6 +144,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const cloudHydratedRef = useRef(false);
   const cloudSaveTimerRef = useRef<number | null>(null);
   const cloudStatusRef = useRef<CloudSyncStatus>('connecting');
+  const previousActiveTemplateIdRef = useRef(activeTemplateId);
   const contentAreaRef = useRef<HTMLDivElement>(null);
   const pullStartRef = useRef<{ x: number; y: number } | null>(null);
   const pullDistanceRef = useRef(0);
@@ -355,6 +356,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
 
   // Load tasks when activeTemplateId changes
   useEffect(() => {
+    const planChanged = previousActiveTemplateIdRef.current !== activeTemplateId;
     const savedTasks = localStorage.getItem(`gantt_tasks_${activeTemplateId}`);
     let nextTasks = activeSharedPlan?.tasks ?? activeTemplate.tasks;
     if (savedTasks && !activeSharedPlan) {
@@ -367,8 +369,11 @@ function App({ accountEmail, onSignOut }: AppProps) {
     setTasks(nextTasks);
     setTasksTemplateId(activeTemplateId);
     localStorage.setItem('gantt_active_template_id', JSON.stringify(activeTemplateId));
-    setSelectedTaskId(null);
-    setHistory([]); // Reset undo history stack on project swap
+    if (planChanged) {
+      setSelectedTaskId(null);
+      setHistory([]); // Reset undo history stack only on an actual project swap.
+    }
+    previousActiveTemplateIdRef.current = activeTemplateId;
   }, [activeTemplateId, activeTemplate.tasks, activeSharedPlan]);
 
   useEffect(() => {

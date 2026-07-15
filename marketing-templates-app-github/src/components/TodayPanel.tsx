@@ -72,10 +72,10 @@ const getDeadlineLabel = (endDate: string, referenceDate: string, lang: Language
 export default function TodayPanel({ groups, lang, referenceDate, onOpenPlan, onOpenTask }: TodayPanelProps) {
   const [isOpen, setIsOpen] = useState<boolean>(() => {
     try {
-      const saved = localStorage.getItem('gantt_today_panel_open');
-      return saved === null ? true : JSON.parse(saved) === true;
+      const saved = localStorage.getItem('gantt_today_panel_open_v2');
+      return saved === null ? false : JSON.parse(saved) === true;
     } catch {
-      return true;
+      return false;
     }
   });
   const totalItems = groups.reduce((sum, group) => sum + group.items.length, 0);
@@ -89,7 +89,7 @@ export default function TodayPanel({ groups, lang, referenceDate, onOpenPlan, on
     setIsOpen(previous => {
       const next = !previous;
       try {
-        localStorage.setItem('gantt_today_panel_open', JSON.stringify(next));
+        localStorage.setItem('gantt_today_panel_open_v2', JSON.stringify(next));
       } catch {
         // The panel still works when browser storage is unavailable.
       }
@@ -98,62 +98,65 @@ export default function TodayPanel({ groups, lang, referenceDate, onOpenPlan, on
   };
 
   return (
-    <aside className={`today-panel ${isOpen ? 'open' : 'collapsed'}`} aria-label={lang === 'uk' ? 'Плани на сьогодні' : 'Today plans'}>
-      <button className="today-panel-toggle" onClick={togglePanel} aria-expanded={isOpen}>
-        <span className="today-panel-icon"><CalendarCheck size={18} /></span>
-        <span className="today-panel-heading">
-          <strong>{lang === 'uk' ? 'Сьогодні' : 'Today'}</strong>
-          <small>{isOpen ? todayLabel : (lang === 'uk' ? `${totalItems} актуальних` : `${totalItems} active`)}</small>
-        </span>
-        <span className="today-panel-count">{totalItems}</span>
-        {isOpen ? <ChevronDown size={17} /> : <ChevronUp size={17} />}
-      </button>
+    <>
+      {isOpen && <button type="button" className="today-panel-scrim" onClick={togglePanel} aria-label={lang === 'uk' ? 'Закрити плани на сьогодні' : 'Close today plans'} />}
+      <aside className={`today-panel ${isOpen ? 'open' : 'collapsed'}`} aria-label={lang === 'uk' ? 'Плани на сьогодні' : 'Today plans'}>
+        <button className="today-panel-toggle" onClick={togglePanel} aria-expanded={isOpen}>
+          <span className="today-panel-icon"><CalendarCheck size={18} /></span>
+          <span className="today-panel-heading">
+            <strong>{lang === 'uk' ? 'Сьогодні' : 'Today'}</strong>
+            <small>{isOpen ? todayLabel : (lang === 'uk' ? `${totalItems} актуальних` : `${totalItems} active`)}</small>
+          </span>
+          <span className="today-panel-count">{totalItems}</span>
+          {isOpen ? <ChevronDown size={17} /> : <ChevronUp size={17} />}
+        </button>
 
-      {isOpen && (
-        <div className="today-panel-content">
-          {groups.length > 0 ? groups.map(group => (
-            <section className="today-plan-group" key={group.id}>
-              <button className="today-plan-header" onClick={() => onOpenPlan(group.id)}>
-                <span className="today-plan-color" style={{ background: group.color }} />
-                <strong>{group.title}</strong>
-                <span>{group.items.length}</span>
-                <ExternalLink size={13} />
-              </button>
-              <div className="today-item-list">
-                {group.items.map(item => (
-                  <button
-                    className={`today-item ${item.status === 'done' ? 'done' : ''}`}
-                    onClick={() => onOpenTask(group.id, item.parentTaskId)}
-                    key={`${group.id}-${item.parentTaskId}-${item.isSubtask ? 'subtask' : 'task'}-${item.id}`}
-                  >
-                    <span className="today-item-type">
-                      {item.isSubtask ? <ListChecks size={14} /> : <CheckCircle2 size={14} />}
-                    </span>
-                    <span className="today-item-copy">
-                      <strong>{item.title}</strong>
-                      <small>
-                        {item.isSubtask ? (lang === 'uk' ? 'Підзавдання' : 'Subtask') : (lang === 'uk' ? 'Завдання' : 'Task')}
-                        {' · '}{item.assignee || (lang === 'uk' ? 'Без виконавця' : 'Unassigned')}
-                      </small>
-                      <span className={`today-item-deadline ${item.endDate < referenceDate ? 'overdue' : ''}`}>
-                        <CalendarClock size={12} />
-                        {getDeadlineLabel(item.endDate, referenceDate, lang)}
+        {isOpen && (
+          <div className="today-panel-content">
+            {groups.length > 0 ? groups.map(group => (
+              <section className="today-plan-group" key={group.id}>
+                <button className="today-plan-header" onClick={() => onOpenPlan(group.id)}>
+                  <span className="today-plan-color" style={{ background: group.color }} />
+                  <strong>{group.title}</strong>
+                  <span>{group.items.length}</span>
+                  <ExternalLink size={13} />
+                </button>
+                <div className="today-item-list">
+                  {group.items.map(item => (
+                    <button
+                      className={`today-item ${item.status === 'done' ? 'done' : ''}`}
+                      onClick={() => onOpenTask(group.id, item.parentTaskId)}
+                      key={`${group.id}-${item.parentTaskId}-${item.isSubtask ? 'subtask' : 'task'}-${item.id}`}
+                    >
+                      <span className="today-item-type">
+                        {item.isSubtask ? <ListChecks size={14} /> : <CheckCircle2 size={14} />}
                       </span>
-                    </span>
-                    <span className={`today-status today-status-${item.status}`}>{statusLabels[lang][item.status]}</span>
-                  </button>
-                ))}
+                      <span className="today-item-copy">
+                        <strong>{item.title}</strong>
+                        <small>
+                          {item.isSubtask ? (lang === 'uk' ? 'Підзавдання' : 'Subtask') : (lang === 'uk' ? 'Завдання' : 'Task')}
+                          {' · '}{item.assignee || (lang === 'uk' ? 'Без виконавця' : 'Unassigned')}
+                        </small>
+                        <span className={`today-item-deadline ${item.endDate < referenceDate ? 'overdue' : ''}`}>
+                          <CalendarClock size={12} />
+                          {getDeadlineLabel(item.endDate, referenceDate, lang)}
+                        </span>
+                      </span>
+                      <span className={`today-status today-status-${item.status}`}>{statusLabels[lang][item.status]}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )) : (
+              <div className="today-panel-empty">
+                <CheckCircle2 size={24} />
+                <strong>{lang === 'uk' ? 'На сьогодні нічого не заплановано' : 'Nothing scheduled for today'}</strong>
+                <span>{lang === 'uk' ? 'Можна зосередитися на наступних кроках.' : 'You can focus on what comes next.'}</span>
               </div>
-            </section>
-          )) : (
-            <div className="today-panel-empty">
-              <CheckCircle2 size={24} />
-              <strong>{lang === 'uk' ? 'На сьогодні нічого не заплановано' : 'Nothing scheduled for today'}</strong>
-              <span>{lang === 'uk' ? 'Можна зосередитися на наступних кроках.' : 'You can focus on what comes next.'}</span>
-            </div>
-          )}
-        </div>
-      )}
-    </aside>
+            )}
+          </div>
+        )}
+      </aside>
+    </>
   );
 }
