@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo, type TouchEvent as ReactTouchEvent } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, type SetStateAction, type TouchEvent as ReactTouchEvent } from 'react';
 import { 
   Megaphone, Globe, Compass, BookOpen, Calendar, Search, Plus, 
   Download, Upload, Languages, RotateCcw, FileText, AlertTriangle,
@@ -146,6 +146,8 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const cloudStatusRef = useRef<CloudSyncStatus>('connecting');
   const previousActiveTemplateIdRef = useRef(activeTemplateId);
   const selectedTaskIdRef = useRef(selectedTaskId);
+  const localTasksDirtyRef = useRef(false);
+  const localTasksRevisionRef = useRef(0);
   const contentAreaRef = useRef<HTMLDivElement>(null);
   const pullStartRef = useRef<{ x: number; y: number } | null>(null);
   const pullDistanceRef = useRef(0);
@@ -168,6 +170,12 @@ function App({ accountEmail, onSignOut }: AppProps) {
   useEffect(() => {
     cloudStatusRef.current = cloudStatus;
   }, [cloudStatus]);
+
+  const setLocalTasks = (nextTasks: SetStateAction<Task[]>) => {
+    localTasksDirtyRef.current = true;
+    localTasksRevisionRef.current += 1;
+    setTasks(nextTasks);
+  };
 
   const resetPullGesture = () => {
     pullStartRef.current = null;
@@ -253,7 +261,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const handleUndo = (index: number = 0) => {
     if (history.length <= index) return;
     const targetState = history[index].tasks;
-    setTasks(targetState);
+    setLocalTasks(targetState);
     setHistory(prev => prev.slice(index + 1));
     setIsUndoDropdownOpen(false);
     showToast(lang === 'uk' ? 'Дію скасовано' : 'Action undone', 'success');
@@ -362,7 +370,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
   // Load tasks when activeTemplateId changes
   useEffect(() => {
     const planChanged = previousActiveTemplateIdRef.current !== activeTemplateId;
-    if (!planChanged && selectedTaskIdRef.current) return;
+    if (!planChanged && (selectedTaskIdRef.current || localTasksDirtyRef.current)) return;
     const savedTasks = localStorage.getItem(`gantt_tasks_${activeTemplateId}`);
     let nextTasks = activeSharedPlan?.tasks ?? activeTemplate.tasks;
     if (savedTasks && !activeSharedPlan) {
@@ -376,6 +384,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
     setTasksTemplateId(activeTemplateId);
     localStorage.setItem('gantt_active_template_id', JSON.stringify(activeTemplateId));
     if (planChanged) {
+      localTasksDirtyRef.current = false;
       setSelectedTaskId(null);
       setHistory([]); // Reset undo history stack only on an actual project swap.
     }
@@ -638,10 +647,16 @@ function App({ accountEmail, onSignOut }: AppProps) {
   }, [activeTemplateId, archivedPlanIds, customTemplates, hiddenDefaultTemplateIds, ideas, lang, planNameOverrides, reminders, showOnboarding, tasks, tasksTemplateId, teamMembers, theme]);
 
   useEffect(() => {
-    if (!activeSharedPlan || !canEditActivePlan || tasksTemplateId !== activeTemplateId || !cloudHydratedRef.current) return;
+    if (!activeSharedPlan || !canEditActivePlan || tasksTemplateId !== activeTemplateId || !cloudHydratedRef.current || !localTasksDirtyRef.current) return;
+    const revision = localTasksRevisionRef.current;
     const timer = window.setTimeout(() => {
       void updateSharedPlan(activeSharedPlan.id, getPlanTitle(activeTemplate), activeTemplate, tasks)
-        .then(() => setCloudStatus('synced'))
+        .then(() => {
+          if (localTasksRevisionRef.current === revision) {
+            localTasksDirtyRef.current = false;
+          }
+          setCloudStatus('synced');
+        })
         .catch(error => {
           console.error('Shared plan save failed', error);
           setCloudStatus('error');
@@ -839,14 +854,14 @@ function App({ accountEmail, onSignOut }: AppProps) {
     const task = tasks.find(item => item.id === taskId);
     if (!task) return;
     saveToHistory(lang === 'uk' ? 'Завдання архівовано' : 'Archived task', 'Archived task');
-    setTasks(previous => previous.map(item => item.id === taskId ? { ...item, archived: true } : item));
+    setLocalTasks(previous => previous.map(item => item.id === taskId ? { ...item, archived: true } : item));
     setSelectedTaskId(null);
     showToast(lang === 'uk' ? `Завдання «${task.title}» переміщено в архів` : `“${task.title}” moved to archive`);
   };
 
   const handleRestoreTask = (taskId: string) => {
     if (!canEditActivePlan) return showToast(lang === 'uk' ? 'У вас доступ лише для перегляду' : 'You have view-only access', 'error');
-    setTasks(previous => previous.map(item => item.id === taskId ? { ...item, archived: false } : item));
+    setLocalTasks(previous => previous.map(item => item.id === taskId ? { ...item, archived: false } : item));
     showToast(lang === 'uk' ? 'Завдання відновлено' : 'Task restored');
   };
 
@@ -1031,7 +1046,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
       comments: []
     };
     
-    setTasks(prev => [...prev, newTask]);
+    setLocalTasks(prev => [...prev, newTask]);
     setSelectedTaskId(newTask.id);
   };
 
@@ -1059,7 +1074,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
     const newTasksList = [...tasks];
     newTasksList.splice(origIndex + 1, 0, clonedTask);
     
-    setTasks(newTasksList);
+    setLocalTasks(newTasksList);
     setSelectedTaskId(clonedTask.id);
     showToast(lang === 'uk' ? 'Завдання дубльовано!' : 'Task duplicated!', 'success');
   };
@@ -1160,7 +1175,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
   // Update single Task with auto-scheduling recalculation and parent task date synchronization
   const handleUpdateTask = (updatedTask: Task) => {
     if (!canEditActivePlan) return showToast(lang === 'uk' ? 'У вас доступ лише для перегляду' : 'You have view-only access', 'error');
-    setTasks(prev => {
+    setLocalTasks(prev => {
       const syncedTask = syncParentTaskDates(updatedTask);
       const replaced = prev.map(t => t.id === syncedTask.id ? syncedTask : t);
       
@@ -1189,7 +1204,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
       'Deleted task'
     );
 
-    setTasks(prev => prev.filter(t => t.id !== taskId));
+    setLocalTasks(prev => prev.filter(t => t.id !== taskId));
     setReminders(previous => previous.filter(reminder =>
       !(reminder.planId === activeTemplateId && reminder.taskId === taskId)
     ));
@@ -1207,7 +1222,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
     );
 
     const availableAssignees = new Set(teamMembers.map(member => member.name));
-    setTasks(activeTemplate.tasks.map(task => ({
+    setLocalTasks(activeTemplate.tasks.map(task => ({
       ...task,
       assignee: availableAssignees.has(task.assignee) ? task.assignee : '',
       subtasks: task.subtasks.map(subtask => ({
@@ -1436,7 +1451,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
         if (Array.isArray(importedTasks)) {
           const isValid = importedTasks.every(t => t.id && t.title && t.startDate && t.endDate);
           if (isValid) {
-            setTasks(importedTasks);
+            setLocalTasks(importedTasks);
             showToast(getTranslation(lang, 'importSuccess'), 'success');
           } else {
             showToast(getTranslation(lang, 'importError'), 'error');
