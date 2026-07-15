@@ -142,13 +142,14 @@ export const updateSharedPlan = async (
   title: string,
   template: MarketingTemplate,
   tasks: Task[],
-): Promise<void> => {
-  const { error } = await supabase.from('shared_plans').update({
+): Promise<Task[]> => {
+  const { data, error } = await supabase.from('shared_plans').update({
     title,
     template: template as unknown as Json,
     tasks: tasks as unknown as Json,
-  }).eq('id', sharedPlanId);
+  }).eq('id', sharedPlanId).select('tasks').single();
   if (error) throw error;
+  return data.tasks as unknown as Task[];
 };
 
 export const stopSharingPlan = async (sharedPlanId: string): Promise<void> => {

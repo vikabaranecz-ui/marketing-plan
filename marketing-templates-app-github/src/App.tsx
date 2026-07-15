@@ -148,6 +148,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const selectedTaskIdRef = useRef(selectedTaskId);
   const localTasksDirtyRef = useRef(false);
   const localTasksRevisionRef = useRef(0);
+  const sharedSaveInFlightRevisionRef = useRef<number | null>(null);
   const contentAreaRef = useRef<HTMLDivElement>(null);
   const pullStartRef = useRef<{ x: number; y: number } | null>(null);
   const pullDistanceRef = useRef(0);
@@ -370,7 +371,11 @@ function App({ accountEmail, onSignOut }: AppProps) {
   // Load tasks when activeTemplateId changes
   useEffect(() => {
     const planChanged = previousActiveTemplateIdRef.current !== activeTemplateId;
-    if (!planChanged && (selectedTaskIdRef.current || localTasksDirtyRef.current)) return;
+    if (!planChanged && (
+      selectedTaskIdRef.current
+      || localTasksDirtyRef.current
+      || sharedSaveInFlightRevisionRef.current !== null
+    )) return;
     const savedTasks = localStorage.getItem(`gantt_tasks_${activeTemplateId}`);
     let nextTasks = activeSharedPlan?.tasks ?? activeTemplate.tasks;
     if (savedTasks && !activeSharedPlan) {
@@ -650,15 +655,28 @@ function App({ accountEmail, onSignOut }: AppProps) {
     if (!activeSharedPlan || !canEditActivePlan || tasksTemplateId !== activeTemplateId || !cloudHydratedRef.current || !localTasksDirtyRef.current) return;
     const revision = localTasksRevisionRef.current;
     const timer = window.setTimeout(() => {
+      // Realtime can arrive before the PATCH promise resolves. Mark this revision
+      // as persisted before sending so its own echo cannot schedule another write.
+      localTasksDirtyRef.current = false;
+      sharedSaveInFlightRevisionRef.current = revision;
       void updateSharedPlan(activeSharedPlan.id, getPlanTitle(activeTemplate), activeTemplate, tasks)
-        .then(() => {
+        .then(savedTasks => {
+          if (sharedSaveInFlightRevisionRef.current === revision) {
+            sharedSaveInFlightRevisionRef.current = null;
+          }
           if (localTasksRevisionRef.current === revision) {
-            localTasksDirtyRef.current = false;
+            setTasks(savedTasks);
           }
           setCloudStatus('synced');
         })
         .catch(error => {
           console.error('Shared plan save failed', error);
+          if (sharedSaveInFlightRevisionRef.current === revision) {
+            sharedSaveInFlightRevisionRef.current = null;
+          }
+          if (localTasksRevisionRef.current === revision) {
+            localTasksDirtyRef.current = true;
+          }
           setCloudStatus('error');
         });
     }, 800);
