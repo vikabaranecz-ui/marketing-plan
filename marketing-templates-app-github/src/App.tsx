@@ -145,6 +145,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const cloudSaveTimerRef = useRef<number | null>(null);
   const cloudStatusRef = useRef<CloudSyncStatus>('connecting');
   const previousActiveTemplateIdRef = useRef(activeTemplateId);
+  const selectedTaskIdRef = useRef(selectedTaskId);
   const contentAreaRef = useRef<HTMLDivElement>(null);
   const pullStartRef = useRef<{ x: number; y: number } | null>(null);
   const pullDistanceRef = useRef(0);
@@ -354,9 +355,14 @@ function App({ accountEmail, onSignOut }: AppProps) {
     || planNameOverrides[template.id]
     || (lang === 'uk' ? template.titleUa : template.titleEn), [lang, planNameOverrides, sharedPlanViews]);
 
+  useEffect(() => {
+    selectedTaskIdRef.current = selectedTaskId;
+  }, [selectedTaskId]);
+
   // Load tasks when activeTemplateId changes
   useEffect(() => {
     const planChanged = previousActiveTemplateIdRef.current !== activeTemplateId;
+    if (!planChanged && selectedTaskIdRef.current) return;
     const savedTasks = localStorage.getItem(`gantt_tasks_${activeTemplateId}`);
     let nextTasks = activeSharedPlan?.tasks ?? activeTemplate.tasks;
     if (savedTasks && !activeSharedPlan) {
