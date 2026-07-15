@@ -30,6 +30,8 @@ const hasPersonalWorkspace = (state: CloudAppState | null) => {
     state.customTemplates.length > 0
     || state.hiddenDefaultTemplateIds.length > 0
     || state.archivedPlanIds.length > 0
+    || (state.reminders?.length ?? 0) > 0
+    || (state.ideas?.length ?? 0) > 0
     || Object.keys(state.planNameOverrides).length > 0
     || JSON.stringify(state.teamMembers) !== JSON.stringify(TEAM_MEMBERS)
   ) return true;

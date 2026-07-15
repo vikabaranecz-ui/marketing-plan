@@ -5,10 +5,10 @@ import {
   Sun, Moon, Copy, Trash2, Info, X, ChevronDown, ChevronRight,
   Menu, Eye, EyeOff, Table, Users, Cloud, CloudOff, LoaderCircle, Pencil,
   Archive, CalendarRange, MoreHorizontal, SlidersHorizontal, FolderOpen, LogOut, CircleUserRound,
-  Share2, Lock, UserPlus, Shield, Smartphone
+  Share2, Lock, UserPlus, Shield, Smartphone, Bell, Lightbulb
 } from 'lucide-react';
 import './App.css';
-import type { Task, MarketingTemplate, ActiveTab, ZoomLevel, Language, TeamMember } from './types';
+import type { Task, MarketingTemplate, ActiveTab, ZoomLevel, Language, TeamMember, Reminder, Idea } from './types';
 import { DEFAULT_TEMPLATES, TEAM_MEMBERS } from './data/templatesData';
 import { getTranslation } from './utils/locales';
 
@@ -21,6 +21,9 @@ import PlansCalendarView, { type PlanCalendarItem } from './components/PlansCale
 import TodayPanel, { type TodayPlanGroup } from './components/TodayPanel';
 import MobileTaskList from './components/MobileTaskList';
 import MobilePlansView from './components/MobilePlansView';
+import ReminderCenter, { type ReminderPlanOption, type ReminderTargetDraft } from './components/ReminderCenter';
+import ReminderAlert from './components/ReminderAlert';
+import IdeasDialog from './components/IdeasDialog';
 import {
   ensureCloudUser,
   loadCloudState,
@@ -120,6 +123,12 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const [archivedPlanIds, setArchivedPlanIds] = useState<string[]>(() =>
     getLocalStorage<string[]>('gantt_archived_plan_ids', [])
   );
+  const [reminders, setReminders] = useState<Reminder[]>(() =>
+    getLocalStorage<Reminder[]>('gantt_reminders', [])
+  );
+  const [ideas, setIdeas] = useState<Idea[]>(() =>
+    getLocalStorage<Idea[]>('gantt_ideas', [])
+  );
   
   // Active Project Plan id
   const [activeTemplateId, setActiveTemplateId] = useState<string>(() => 
@@ -143,6 +152,13 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [isTeamManagerOpen, setIsTeamManagerOpen] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+  const [isReminderCenterOpen, setIsReminderCenterOpen] = useState(false);
+  const [isIdeasOpen, setIsIdeasOpen] = useState(false);
+  const [activeReminderId, setActiveReminderId] = useState<string | null>(null);
+  const [reminderDraftTarget, setReminderDraftTarget] = useState<ReminderTargetDraft>({
+    targetType: 'plan',
+    planId: activeTemplateId,
+  });
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -391,6 +407,14 @@ function App({ accountEmail, onSignOut }: AppProps) {
     localStorage.setItem('gantt_archived_plan_ids', JSON.stringify(archivedPlanIds));
   }, [archivedPlanIds]);
 
+  useEffect(() => {
+    localStorage.setItem('gantt_reminders', JSON.stringify(reminders));
+  }, [reminders]);
+
+  useEffect(() => {
+    localStorage.setItem('gantt_ideas', JSON.stringify(ideas));
+  }, [ideas]);
+
   // Save Language changes
   useEffect(() => {
     localStorage.setItem('gantt_lang', JSON.stringify(lang));
@@ -429,6 +453,8 @@ function App({ accountEmail, onSignOut }: AppProps) {
             tasksByTemplate: Object.fromEntries(
               DEFAULT_TEMPLATES.map(template => [template.id, template.tasks]),
             ),
+            reminders: [],
+            ideas: [],
           };
           await saveCloudState(userId, cloudState);
           if (cancelled) return;
@@ -446,10 +472,14 @@ function App({ accountEmail, onSignOut }: AppProps) {
           const restoredTeamMembers = cloudState.teamMembers ?? TEAM_MEMBERS;
           const restoredPlanNameOverrides = cloudState.planNameOverrides ?? {};
           const restoredArchivedPlanIds = cloudState.archivedPlanIds ?? [];
+          const restoredReminders = cloudState.reminders ?? [];
+          const restoredIdeas = cloudState.ideas ?? [];
           localStorage.setItem('gantt_hidden_default_templates', JSON.stringify(restoredHiddenDefaultTemplateIds));
           localStorage.setItem('gantt_team_members', JSON.stringify(restoredTeamMembers));
           localStorage.setItem('gantt_plan_name_overrides', JSON.stringify(restoredPlanNameOverrides));
           localStorage.setItem('gantt_archived_plan_ids', JSON.stringify(restoredArchivedPlanIds));
+          localStorage.setItem('gantt_reminders', JSON.stringify(restoredReminders));
+          localStorage.setItem('gantt_ideas', JSON.stringify(restoredIdeas));
           localStorage.setItem('gantt_active_template_id', JSON.stringify(cloudState.activeTemplateId));
 
           const restoredTemplates = [
@@ -472,6 +502,8 @@ function App({ accountEmail, onSignOut }: AppProps) {
           setTeamMembers(restoredTeamMembers);
           setPlanNameOverrides(restoredPlanNameOverrides);
           setArchivedPlanIds(restoredArchivedPlanIds);
+          setReminders(restoredReminders);
+          setIdeas(restoredIdeas);
           setActiveTemplateId(restoredTemplateId);
           setTasks(restoredTasks);
           setTasksTemplateId(restoredTemplateId);
@@ -575,6 +607,8 @@ function App({ accountEmail, onSignOut }: AppProps) {
         archivedPlanIds,
         activeTemplateId,
         tasksByTemplate,
+        reminders,
+        ideas,
       };
 
       void saveCloudState(userId, nextState)
@@ -590,7 +624,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
         window.clearTimeout(cloudSaveTimerRef.current);
       }
     };
-  }, [activeTemplateId, archivedPlanIds, customTemplates, hiddenDefaultTemplateIds, lang, planNameOverrides, showOnboarding, tasks, tasksTemplateId, teamMembers, theme]);
+  }, [activeTemplateId, archivedPlanIds, customTemplates, hiddenDefaultTemplateIds, ideas, lang, planNameOverrides, reminders, showOnboarding, tasks, tasksTemplateId, teamMembers, theme]);
 
   useEffect(() => {
     if (!activeSharedPlan || !canEditActivePlan || tasksTemplateId !== activeTemplateId || !cloudHydratedRef.current) return;
@@ -609,6 +643,143 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
     setToastMessage({ text, type });
     setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const createClientId = (prefix: string) =>
+    `${prefix}_${typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now()}_${Math.random().toString(36).slice(2)}`}`;
+
+  const openReminderCenter = (target: ReminderTargetDraft) => {
+    setReminderDraftTarget(target);
+    setIsReminderCenterOpen(true);
+  };
+
+  const handleCreateReminder = (draft: Omit<Reminder, 'id' | 'createdAt'>) => {
+    const reminder: Reminder = {
+      ...draft,
+      id: createClientId('reminder'),
+      createdAt: new Date().toISOString(),
+    };
+    setReminders(previous => [...previous, reminder]);
+    if ('Notification' in window && Notification.permission === 'default') {
+      void Notification.requestPermission();
+    }
+    showToast(lang === 'uk' ? 'Нагадування додано' : 'Reminder added');
+  };
+
+  const handleDeleteReminder = (reminderId: string) => {
+    setReminders(previous => previous.filter(reminder => reminder.id !== reminderId));
+    setActiveReminderId(previous => previous === reminderId ? null : previous);
+  };
+
+  const handleCompleteReminder = (reminderId: string) => {
+    const now = new Date().toISOString();
+    const completedReminder = reminders.find(reminder => reminder.id === reminderId);
+    const recurringIdea = completedReminder?.targetType === 'idea'
+      ? ideas.find(idea => idea.id === completedReminder.ideaId)
+      : undefined;
+    const repeatDays = recurringIdea?.reviewIntervalDays;
+    let nextReviewAt: string | undefined;
+    if (completedReminder && repeatDays) {
+      const nextDate = new Date(completedReminder.remindAt);
+      do {
+        nextDate.setDate(nextDate.getDate() + repeatDays);
+      } while (nextDate.getTime() <= Date.now());
+      nextReviewAt = nextDate.toISOString();
+    }
+    setReminders(previous => previous.map(reminder =>
+      reminder.id === reminderId
+        ? nextReviewAt
+          ? { ...reminder, remindAt: nextReviewAt, notifiedAt: now, dismissedAt: undefined }
+          : { ...reminder, notifiedAt: now, dismissedAt: now }
+        : reminder
+    ));
+    if (recurringIdea && nextReviewAt) {
+      setIdeas(previous => previous.map(idea =>
+        idea.id === recurringIdea.id ? { ...idea, reviewAt: nextReviewAt, updatedAt: now } : idea
+      ));
+    }
+    setActiveReminderId(null);
+  };
+
+  const handleSnoozeReminder = (reminderId: string, minutes: number) => {
+    const nextTime = new Date(Date.now() + minutes * 60_000).toISOString();
+    setReminders(previous => previous.map(reminder =>
+      reminder.id === reminderId
+        ? { ...reminder, remindAt: nextTime, notifiedAt: new Date().toISOString(), dismissedAt: undefined }
+        : reminder
+    ));
+    setActiveReminderId(null);
+    showToast(lang === 'uk' ? `Відкладено на ${minutes} хв` : `Snoozed for ${minutes} min`);
+  };
+
+  const handleCreateIdea = (draft: Pick<Idea, 'title' | 'description' | 'planId' | 'reviewAt' | 'reviewIntervalDays'>) => {
+    const now = new Date().toISOString();
+    const idea: Idea = {
+      ...draft,
+      id: createClientId('idea'),
+      status: draft.planId ? 'considering' : 'inbox',
+      createdAt: now,
+      updatedAt: now,
+    };
+    setIdeas(previous => [idea, ...previous]);
+    const reviewAt = idea.reviewAt;
+    if (reviewAt) {
+      setReminders(previous => [...previous, {
+        id: createClientId('reminder'),
+        targetType: 'idea',
+        ideaId: idea.id,
+        title: idea.title,
+        note: lang === 'uk' ? 'Повернутися до цієї ідеї та вирішити, чи перетворювати її на план.' : 'Review this idea and decide whether to turn it into a plan.',
+        remindAt: reviewAt,
+        createdAt: now,
+      }]);
+    }
+    showToast(lang === 'uk' ? 'Ідею збережено' : 'Idea saved');
+  };
+
+  const handleArchiveIdea = (ideaId: string) => {
+    setIdeas(previous => previous.map(idea =>
+      idea.id === ideaId ? { ...idea, status: 'archived', updatedAt: new Date().toISOString() } : idea
+    ));
+    setReminders(previous => previous.map(reminder =>
+      reminder.ideaId === ideaId ? { ...reminder, dismissedAt: new Date().toISOString() } : reminder
+    ));
+  };
+
+  const handleDeleteIdea = (ideaId: string) => {
+    if (!confirm(lang === 'uk' ? 'Видалити цю ідею?' : 'Delete this idea?')) return;
+    setIdeas(previous => previous.filter(idea => idea.id !== ideaId));
+    setReminders(previous => previous.filter(reminder => reminder.ideaId !== ideaId));
+  };
+
+  const handleConvertIdeaToPlan = (ideaId: string) => {
+    const idea = ideas.find(item => item.id === ideaId);
+    if (!idea) return;
+    const planId = createClientId('custom_idea');
+    const plan: MarketingTemplate = {
+      id: planId,
+      titleUa: idea.title,
+      titleEn: idea.title,
+      categoryUa: 'План з ідеї',
+      categoryEn: 'Plan from idea',
+      descriptionUa: idea.description || 'План створено зі сховища ідей.',
+      descriptionEn: idea.description || 'Plan created from the idea inbox.',
+      iconName: 'Lightbulb',
+      tasks: [],
+    };
+    setCustomTemplates(previous => [...previous, plan]);
+    setIdeas(previous => previous.map(item =>
+      item.id === ideaId
+        ? { ...item, status: 'converted', convertedPlanId: planId, updatedAt: new Date().toISOString() }
+        : item
+    ));
+    setReminders(previous => previous.map(reminder =>
+      reminder.ideaId === ideaId ? { ...reminder, dismissedAt: new Date().toISOString() } : reminder
+    ));
+    setActiveTemplateId(planId);
+    setActiveTab('grid');
+    setIsIdeasOpen(false);
+    showToast(lang === 'uk' ? 'Ідею перетворено на план' : 'Idea converted to a plan');
   };
 
   const handleTemplateSelect = (id: string) => {
@@ -1008,6 +1179,9 @@ function App({ accountEmail, onSignOut }: AppProps) {
     );
 
     setTasks(prev => prev.filter(t => t.id !== taskId));
+    setReminders(previous => previous.filter(reminder =>
+      !(reminder.planId === activeTemplateId && reminder.taskId === taskId)
+    ));
     if (selectedTaskId === taskId) {
       setSelectedTaskId(null);
     }
@@ -1156,6 +1330,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
       return next;
     });
     localStorage.removeItem(`gantt_tasks_${templateId}`);
+    setReminders(previous => previous.filter(reminder => reminder.planId !== templateId));
 
     if (activeTemplateId === templateId) {
       const nextTemplate = allTemplates.find(t => t.id !== templateId);
@@ -1366,6 +1541,33 @@ function App({ accountEmail, onSignOut }: AppProps) {
   });
   const activeTemplateTitle = getPlanTitle(activeTemplate);
   const activeTemplateDescription = lang === 'uk' ? activeTemplate.descriptionUa : activeTemplate.descriptionEn;
+  const reminderPlans: ReminderPlanOption[] = allTemplates.map(template => {
+    const planTasks = template.id === activeTemplateId
+      ? tasks
+      : getLocalStorage<Task[] | null>(`gantt_tasks_${template.id}`, null) ?? template.tasks;
+    return {
+      id: template.id,
+      title: getPlanTitle(template),
+      tasks: planTasks.filter(task => !task.archived).map(task => ({
+        id: task.id,
+        title: task.title,
+        subtasks: task.subtasks.map(subtask => ({ id: subtask.id, title: subtask.title })),
+      })),
+    };
+  });
+  const getReminderTargetLabel = (reminder: Reminder) => {
+    if (reminder.targetType === 'idea') {
+      return ideas.find(idea => idea.id === reminder.ideaId)?.title
+        ?? (lang === 'uk' ? 'Ідея' : 'Idea');
+    }
+    const plan = reminderPlans.find(item => item.id === reminder.planId);
+    const task = plan?.tasks.find(item => item.id === reminder.taskId);
+    const subtask = task?.subtasks.find(item => item.id === reminder.subtaskId);
+    if (reminder.targetType === 'subtask') return `${plan?.title ?? ''} · ${task?.title ?? ''} · ${subtask?.title ?? reminder.title}`;
+    if (reminder.targetType === 'task') return `${plan?.title ?? ''} · ${task?.title ?? reminder.title}`;
+    return plan?.title ?? reminder.title;
+  };
+  const activeReminder = reminders.find(reminder => reminder.id === activeReminderId) ?? null;
   const activeFiltersCount = [
     searchQuery.trim() ? 'search' : null,
     filterAssignee !== 'all' ? 'assignee' : null,
@@ -1374,6 +1576,39 @@ function App({ accountEmail, onSignOut }: AppProps) {
 
   const selectedTask = tasks.find(t => t.id === selectedTaskId) || null;
 
+  useEffect(() => {
+    const checkDueReminders = () => {
+      if (activeReminderId) return;
+      const dueReminder = reminders
+        .filter(reminder => !reminder.dismissedAt && Date.parse(reminder.remindAt) <= Date.now())
+        .sort((a, b) => Date.parse(a.remindAt) - Date.parse(b.remindAt))[0];
+      if (!dueReminder) return;
+      setActiveReminderId(dueReminder.id);
+      if ('Notification' in window && Notification.permission === 'granted') {
+        try {
+          new Notification(`${lang === 'uk' ? 'Нагадування' : 'Reminder'}: ${dueReminder.title}`, {
+            body: dueReminder.note || dueReminder.title,
+            icon: '/icons/marketing-plan-192.png',
+            tag: dueReminder.id,
+          });
+        } catch (error) {
+          console.warn('Browser notification is unavailable', error);
+        }
+      }
+    };
+
+    checkDueReminders();
+    const interval = window.setInterval(checkDueReminders, 20_000);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') checkDueReminders();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [activeReminderId, ideas, lang, reminders]);
+
   const renderTemplateIcon = (iconName: string) => {
     switch (iconName) {
       case 'Megaphone': return <Megaphone size={16} />;
@@ -1381,6 +1616,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
       case 'Compass': return <Compass size={16} />;
       case 'BookOpen': return <BookOpen size={16} />;
       case 'Calendar': return <Calendar size={16} />;
+      case 'Lightbulb': return <Lightbulb size={16} />;
       default: return <FileText size={16} />;
     }
   };
@@ -1840,6 +2076,24 @@ function App({ accountEmail, onSignOut }: AppProps) {
 
             <div className="controls-group">
               <button
+                className={`btn-icon feature-header-button ${reminders.some(reminder => !reminder.dismissedAt) ? 'has-items' : ''}`}
+                onClick={() => openReminderCenter({ targetType: 'plan', planId: activeTemplateId })}
+                title={lang === 'uk' ? 'Нагадування' : 'Reminders'}
+                aria-label={lang === 'uk' ? 'Відкрити нагадування' : 'Open reminders'}
+              >
+                <Bell size={16} />
+                {reminders.filter(reminder => !reminder.dismissedAt).length > 0 && <span>{reminders.filter(reminder => !reminder.dismissedAt).length}</span>}
+              </button>
+              <button
+                className={`btn-icon feature-header-button ideas-header-button ${ideas.some(idea => idea.status !== 'archived') ? 'has-items' : ''}`}
+                onClick={() => setIsIdeasOpen(true)}
+                title={lang === 'uk' ? 'Сховище ідей' : 'Idea inbox'}
+                aria-label={lang === 'uk' ? 'Відкрити сховище ідей' : 'Open idea inbox'}
+              >
+                <Lightbulb size={16} />
+                {ideas.filter(idea => idea.status !== 'archived').length > 0 && <span>{ideas.filter(idea => idea.status !== 'archived').length}</span>}
+              </button>
+              <button
                 className={`btn-icon archive-manager-button ${archivedTemplates.length + archivedTasks.length > 0 ? 'has-items' : ''}`}
                 onClick={() => setIsArchiveOpen(true)}
                 title={lang === 'uk' ? 'Відкрити архів' : 'Open archive'}
@@ -2058,6 +2312,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
                   setActiveTab('grid');
                 }}
                 onRename={handleRenamePlan}
+                onReminder={planId => openReminderCenter({ targetType: 'plan', planId })}
               />
             ) : (
               <PlansCalendarView
@@ -2229,6 +2484,8 @@ function App({ accountEmail, onSignOut }: AppProps) {
             </div>
             <div className="mobile-action-grid">
               <button onClick={() => { setIsMobileMenuOpen(false); setIsTeamManagerOpen(true); }}><Users size={19} /><span>{lang === 'uk' ? 'Команда' : 'Team'}</span></button>
+              <button onClick={() => { setIsMobileMenuOpen(false); openReminderCenter({ targetType: 'plan', planId: activeTemplateId }); }}><Bell size={19} /><span>{lang === 'uk' ? 'Нагадування' : 'Reminders'}</span></button>
+              <button onClick={() => { setIsMobileMenuOpen(false); setIsIdeasOpen(true); }}><Lightbulb size={19} /><span>{lang === 'uk' ? 'Ідеї' : 'Ideas'}</span></button>
               <button onClick={() => { setIsMobileMenuOpen(false); void handleTogglePlanSharing(); }}>{activeSharedPlan ? <Lock size={19} /> : <Share2 size={19} />}<span>{activeSharedPlan ? (lang === 'uk' ? 'Приватний' : 'Private') : (lang === 'uk' ? 'Поділитися' : 'Share')}</span></button>
               <button onClick={() => { setIsMobileMenuOpen(false); setIsArchiveOpen(true); }}><Archive size={19} /><span>{lang === 'uk' ? 'Архів' : 'Archive'}</span></button>
               <button onClick={() => { setIsMobileMenuOpen(false); handleDuplicateActivePlan(); }}><Copy size={19} /><span>{lang === 'uk' ? 'Дублювати' : 'Duplicate'}</span></button>
@@ -2256,6 +2513,42 @@ function App({ accountEmail, onSignOut }: AppProps) {
         />
       )}
 
+      {isReminderCenterOpen && (
+        <ReminderCenter
+          reminders={reminders}
+          plans={reminderPlans}
+          defaultTarget={reminderDraftTarget}
+          lang={lang}
+          onClose={() => setIsReminderCenterOpen(false)}
+          onCreate={handleCreateReminder}
+          onDelete={handleDeleteReminder}
+          getTargetLabel={getReminderTargetLabel}
+        />
+      )}
+
+      {isIdeasOpen && (
+        <IdeasDialog
+          ideas={ideas}
+          plans={reminderPlans.map(plan => ({ id: plan.id, title: plan.title }))}
+          lang={lang}
+          onClose={() => setIsIdeasOpen(false)}
+          onCreate={handleCreateIdea}
+          onArchive={handleArchiveIdea}
+          onDelete={handleDeleteIdea}
+          onConvert={handleConvertIdeaToPlan}
+        />
+      )}
+
+      {activeReminder && (
+        <ReminderAlert
+          reminder={activeReminder}
+          targetLabel={getReminderTargetLabel(activeReminder)}
+          lang={lang}
+          onDone={() => handleCompleteReminder(activeReminder.id)}
+          onSnooze={minutes => handleSnoozeReminder(activeReminder.id, minutes)}
+        />
+      )}
+
       {/* Task Edit Side Drawer */}
       {selectedTask && (
         <TaskDetailsDrawer
@@ -2269,6 +2562,13 @@ function App({ accountEmail, onSignOut }: AppProps) {
           lang={lang}
           teamMembers={teamMembers}
           currentUserEmail={accountEmail}
+          reminders={reminders.filter(reminder => reminder.planId === activeTemplateId)}
+          onAddReminder={(targetType, subtaskId) => openReminderCenter({
+            targetType,
+            planId: activeTemplateId,
+            taskId: selectedTask.id,
+            subtaskId,
+          })}
         />
       )}
 

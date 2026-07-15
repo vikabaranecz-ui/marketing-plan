@@ -45,6 +45,38 @@ export interface MarketingTemplate {
   tasks: Task[];
 }
 
+export type ReminderTargetType = 'plan' | 'task' | 'subtask' | 'idea';
+
+export interface Reminder {
+  id: string;
+  targetType: ReminderTargetType;
+  planId?: string;
+  taskId?: string;
+  subtaskId?: string;
+  ideaId?: string;
+  title: string;
+  note?: string;
+  remindAt: string;
+  createdAt: string;
+  notifiedAt?: string;
+  dismissedAt?: string;
+}
+
+export type IdeaStatus = 'inbox' | 'considering' | 'converted' | 'archived';
+
+export interface Idea {
+  id: string;
+  title: string;
+  description: string;
+  planId?: string;
+  status: IdeaStatus;
+  createdAt: string;
+  updatedAt: string;
+  reviewAt?: string;
+  reviewIntervalDays?: number;
+  convertedPlanId?: string;
+}
+
 export interface TeamMember {
   name: string;
   roleUa: string;

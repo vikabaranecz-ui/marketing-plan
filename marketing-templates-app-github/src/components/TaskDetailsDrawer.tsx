@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import type { Task, TaskComment, SubTask, Language, TeamMember } from '../types';
+import type { Task, TaskComment, SubTask, Language, TeamMember, Reminder } from '../types';
 import { getTranslation } from '../utils/locales';
-import { X, Plus, Trash2, CheckSquare, MessageSquare, AlertTriangle, Send, Copy, Archive } from 'lucide-react';
+import { X, Plus, Trash2, CheckSquare, MessageSquare, AlertTriangle, Send, Copy, Archive, Bell } from 'lucide-react';
 
 interface TaskDetailsDrawerProps {
   task: Task;
@@ -14,6 +14,8 @@ interface TaskDetailsDrawerProps {
   lang: Language;
   teamMembers: TeamMember[];
   currentUserEmail: string;
+  reminders: Reminder[];
+  onAddReminder: (targetType: 'task' | 'subtask', subtaskId?: string) => void;
 }
 
 const parseLocalDate = (dateStr: string): Date => {
@@ -51,6 +53,8 @@ export default function TaskDetailsDrawer({
   lang,
   teamMembers,
   currentUserEmail,
+  reminders,
+  onAddReminder,
 }: TaskDetailsDrawerProps) {
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [newCommentContent, setNewCommentContent] = useState('');
@@ -371,6 +375,19 @@ export default function TaskDetailsDrawer({
             </select>
           </div>
 
+          <div className="task-reminder-card">
+            <span className="task-reminder-icon"><Bell size={16} /></span>
+            <span>
+              <strong>{lang === 'uk' ? 'Нагадування про завдання' : 'Task reminders'}</strong>
+              <small>
+                {lang === 'uk'
+                  ? `${reminders.filter(reminder => reminder.targetType === 'task' && reminder.taskId === task.id && !reminder.dismissedAt).length} заплановано`
+                  : `${reminders.filter(reminder => reminder.targetType === 'task' && reminder.taskId === task.id && !reminder.dismissedAt).length} scheduled`}
+              </small>
+            </span>
+            <button className="btn btn-secondary btn-compact" onClick={() => onAddReminder('task')}><Plus size={14} />{lang === 'uk' ? 'Додати' : 'Add'}</button>
+          </div>
+
           <hr style={{ border: '0', borderTop: '1px solid var(--border-color)', margin: '4px 0' }} />
 
           {/* Subtasks Section */}
@@ -404,6 +421,16 @@ export default function TaskDetailsDrawer({
                       onChange={() => handleToggleSubtask(s.id)}
                     />
                     <span style={{ flex: 1, fontSize: '0.82rem', fontWeight: 500 }}>{s.title}</span>
+                    <button
+                      type="button"
+                      className="btn-icon subtask-reminder-button"
+                      onClick={() => onAddReminder('subtask', s.id)}
+                      title={lang === 'uk' ? 'Додати нагадування' : 'Add reminder'}
+                      aria-label={`${lang === 'uk' ? 'Додати нагадування' : 'Add reminder'}: ${s.title}`}
+                    >
+                      <Bell size={12} />
+                      {reminders.some(reminder => reminder.targetType === 'subtask' && reminder.subtaskId === s.id && !reminder.dismissedAt) && <i />}
+                    </button>
                     <button 
                       type="button" 
                       className="btn-icon" 

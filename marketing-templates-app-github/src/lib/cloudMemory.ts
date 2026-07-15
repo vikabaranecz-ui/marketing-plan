@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Language, MarketingTemplate, Task, TeamMember } from '../types';
+import type { Idea, Language, MarketingTemplate, Reminder, Task, TeamMember } from '../types';
 import type { Database, Json } from './database.types';
 
 const supabaseUrl =
@@ -29,6 +29,8 @@ export interface CloudAppState {
   archivedPlanIds: string[];
   activeTemplateId: string;
   tasksByTemplate: Record<string, Task[]>;
+  reminders?: Reminder[];
+  ideas?: Idea[];
 }
 
 export const isCloudAppState = (value: unknown): value is CloudAppState => {
@@ -60,7 +62,9 @@ export const isCloudAppState = (value: unknown): value is CloudAppState => {
         state.archivedPlanIds.every(id => typeof id === 'string'))) &&
     typeof state.activeTemplateId === 'string' &&
     !!state.tasksByTemplate &&
-    typeof state.tasksByTemplate === 'object'
+    typeof state.tasksByTemplate === 'object' &&
+    (state.reminders === undefined || Array.isArray(state.reminders)) &&
+    (state.ideas === undefined || Array.isArray(state.ideas))
   );
 };
 
