@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { Task, TaskComment, SubTask, Language, TeamMember, Reminder } from '../types';
 import { getTranslation } from '../utils/locales';
+import { getAutomaticTaskProgress, isSubtaskCompleted } from '../utils/taskProgress';
 import { X, Plus, Trash2, CheckSquare, MessageSquare, AlertTriangle, Send, Copy, Archive, Bell, PenLine } from 'lucide-react';
 import HandwritingInputDialog from './HandwritingInputDialog';
 
@@ -80,6 +81,7 @@ export default function TaskDetailsDrawer({
 
   // Exclude current task from potential dependencies to prevent circular loops
   const eligiblePredecessors = tasks.filter(t => t.id !== task.id);
+  const automaticProgress = getAutomaticTaskProgress(task);
 
   // Field change updates
   const handleFieldChange = (key: keyof Task, value: any) => {
@@ -146,7 +148,7 @@ export default function TaskDetailsDrawer({
   const handleToggleSubtask = (subId: string) => {
     const updated = task.subtasks.map(s => 
       s.id === subId
-        ? { ...s, completed: !s.completed, status: !s.completed ? 'done' as const : 'todo' as const }
+        ? { ...s, completed: !isSubtaskCompleted(s), status: !isSubtaskCompleted(s) ? 'done' as const : 'todo' as const }
         : s
     );
     handleFieldChange('subtasks', updated);
@@ -350,11 +352,9 @@ export default function TaskDetailsDrawer({
                 value={task.status}
                 onChange={e => {
                   const newStatus = e.target.value as Task['status'];
-                  const newProgress = newStatus === 'done' ? 100 : (task.progress === 100 ? 50 : task.progress);
                   onUpdate({
                     ...task,
                     status: newStatus,
-                    progress: task.isMilestone ? 0 : newProgress
                   });
                 }}
               >
@@ -366,21 +366,21 @@ export default function TaskDetailsDrawer({
             </div>
           </div>
 
-          {/* Progress (Slider) */}
+          {/* Automatic progress */}
           {!task.isMilestone && (
             <div className="form-group">
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div className="automatic-progress-heading">
                 <label>{getTranslation(lang, 'progress')}</label>
-                <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{task.progress}%</span>
+                <span>{automaticProgress}%</span>
               </div>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                style={{ accentColor: 'var(--primary)', height: '8px', cursor: 'pointer' }}
-                value={task.progress}
-                onChange={e => handleFieldChange('progress', parseInt(e.target.value))}
-              />
+              <div className="automatic-progress-track automatic-progress-track-large" aria-label={`${getTranslation(lang, 'progress')}: ${automaticProgress}%`}>
+                <i style={{ width: `${automaticProgress}%`, background: automaticProgress === 100 ? 'var(--success)' : (task.color || 'var(--primary)') }} />
+              </div>
+              <small className="automatic-progress-note">
+                {task.subtasks.length > 0
+                  ? (lang === 'uk' ? 'Розраховано за виконаними підзавданнями' : 'Calculated from completed subtasks')
+                  : (lang === 'uk' ? 'Розраховано за статусом завдання' : 'Calculated from task status')}
+              </small>
             </div>
           )}
 
@@ -420,7 +420,7 @@ export default function TaskDetailsDrawer({
           <div className="form-group">
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <CheckSquare size={14} />
-              {getTranslation(lang, 'subtasks')} ({task.subtasks?.filter(s => s.completed).length || 0}/{task.subtasks?.length || 0})
+              {getTranslation(lang, 'subtasks')} ({task.subtasks?.filter(isSubtaskCompleted).length || 0}/{task.subtasks?.length || 0})
             </label>
             
             <form onSubmit={handleAddSubtask} className="input-with-btn" style={{ marginTop: '6px' }}>
@@ -445,11 +445,11 @@ export default function TaskDetailsDrawer({
 
             <div className="checklist-items" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {task.subtasks?.map(s => (
-                <div key={s.id} className={`checklist-item ${s.completed ? 'completed' : ''}`} style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '8px', border: '1px solid var(--border-color)', borderRadius: '6px', background: 'rgba(0,0,0,0.01)' }}>
+                <div key={s.id} className={`checklist-item ${isSubtaskCompleted(s) ? 'completed' : ''}`} style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '8px', border: '1px solid var(--border-color)', borderRadius: '6px', background: 'rgba(0,0,0,0.01)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <input
                       type="checkbox"
-                      checked={s.completed}
+                      checked={isSubtaskCompleted(s)}
                       style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
                       onChange={() => handleToggleSubtask(s.id)}
                     />
@@ -485,7 +485,7 @@ export default function TaskDetailsDrawer({
                   <div style={{ display: 'flex', gap: '6px', paddingLeft: '22px', alignItems: 'center' }}>
                     <select
                       className="subtask-status-select"
-                      value={s.status ?? (s.completed ? 'done' : 'todo')}
+                      value={s.status ?? (isSubtaskCompleted(s) ? 'done' : 'todo')}
                       title={lang === 'uk' ? 'Статус підзавдання' : 'Subtask status'}
                       onChange={(event) => {
                         const status = event.target.value as NonNullable<SubTask['status']>;

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Task, SubTask, Language, TeamMember } from '../types';
 import { getTranslation } from '../utils/locales';
 import { Calendar, CheckSquare, Eye, ListChecks, Plus, Rows3, X } from 'lucide-react';
+import { getAutomaticTaskProgress, isSubtaskCompleted } from '../utils/taskProgress';
 
 interface KanbanBoardProps {
   tasks: Task[];
@@ -58,7 +59,6 @@ export default function KanbanBoard({
     updateTask({
       ...task,
       status,
-      progress: status === 'done' ? 100 : (task.progress === 100 ? 50 : task.progress),
     });
   };
 
@@ -199,7 +199,7 @@ export default function KanbanBoard({
                     {task.subtasks.length > 0 && (
                       <div className="kanban-subtask-summary">
                         <CheckSquare size={12} />
-                        <span>{task.subtasks.filter(item => item.completed).length}/{task.subtasks.length} {lang === 'uk' ? 'підзавдань' : 'subtasks'}</span>
+                        <span>{task.subtasks.filter(isSubtaskCompleted).length}/{task.subtasks.length} {lang === 'uk' ? 'підзавдань' : 'subtasks'}</span>
                       </div>
                     )}
 
@@ -207,7 +207,7 @@ export default function KanbanBoard({
                       <div className="progress-bar-bg" style={{ height: '4px' }}>
                         <div
                           className="progress-bar-fill"
-                          style={{ width: `${task.progress}%`, backgroundColor: task.status === 'done' ? 'var(--success)' : (task.color || 'var(--primary)') }}
+                          style={{ width: `${getAutomaticTaskProgress(task)}%`, backgroundColor: getAutomaticTaskProgress(task) === 100 ? 'var(--success)' : (task.color || 'var(--primary)') }}
                         />
                       </div>
                     )}

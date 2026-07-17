@@ -1,6 +1,7 @@
 import type { Task, Language, TeamMember } from '../types';
 import { getTranslation } from '../utils/locales';
 import { AlertTriangle, Plus, Trash2, Eye, Copy } from 'lucide-react';
+import { getAutomaticTaskProgress } from '../utils/taskProgress';
 
 interface GridViewProps {
   tasks: Task[];
@@ -125,6 +126,7 @@ export default function GridView({
               const start = parseLocalDate(t.startDate);
               const end = parseLocalDate(t.endDate);
               const duration = getDaysBetween(start, end) + 1;
+              const automaticProgress = getAutomaticTaskProgress(t);
 
               // Check for dependency warnings
               let hasWarning = false;
@@ -213,16 +215,10 @@ export default function GridView({
                   {/* Progress */}
                   <td>
                     <div className="progress-input-wrapper">
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        className="progress-range"
-                        value={t.progress}
-                        disabled={t.isMilestone}
-                        onChange={e => updateTask({ ...t, progress: parseInt(e.target.value) })}
-                      />
-                      <span className="progress-number">{t.isMilestone ? '-' : `${t.progress}%`}</span>
+                      <span className="automatic-progress-track" aria-hidden="true">
+                        <i style={{ width: `${automaticProgress}%`, background: automaticProgress === 100 ? 'var(--success)' : (t.color || 'var(--primary)') }} />
+                      </span>
+                      <span className="progress-number">{t.isMilestone ? '-' : `${automaticProgress}%`}</span>
                     </div>
                   </td>
 
@@ -233,12 +229,9 @@ export default function GridView({
                       value={t.status}
                       onChange={e => {
                         const newStatus = e.target.value as Task['status'];
-                        // Sync progress automatically for done status
-                        const newProgress = newStatus === 'done' ? 100 : (t.progress === 100 ? 50 : t.progress);
                         updateTask({ 
                           ...t, 
                           status: newStatus,
-                          progress: t.isMilestone ? 0 : newProgress
                         });
                       }}
                     >

@@ -1,6 +1,7 @@
 import { CalendarDays, CheckSquare, ChevronRight, Plus, UserRound } from 'lucide-react';
 import type { Language, Task, TeamMember } from '../types';
 import { getTranslation } from '../utils/locales';
+import { getAutomaticTaskProgress, isSubtaskCompleted } from '../utils/taskProgress';
 
 interface MobileTaskListProps {
   tasks: Task[];
@@ -31,7 +32,8 @@ export default function MobileTaskList({ tasks, lang, teamMembers, onAdd, onOpen
       <div className="mobile-task-list">
         {tasks.map(task => {
           const member = teamMembers.find(item => item.name === task.assignee);
-          const completedSubtasks = task.subtasks.filter(subtask => subtask.completed).length;
+          const completedSubtasks = task.subtasks.filter(isSubtaskCompleted).length;
+          const progress = getAutomaticTaskProgress(task);
           return (
             <article className={`mobile-task-card ${task.status === 'done' ? 'done' : ''}`} key={task.id}>
               <span className="mobile-task-accent" style={{ background: task.color ?? '#6366f1' }} />
@@ -59,7 +61,6 @@ export default function MobileTaskList({ tasks, lang, teamMembers, onAdd, onOpen
                     onUpdate({
                       ...task,
                       status,
-                      progress: status === 'done' ? 100 : (task.progress === 100 ? 50 : task.progress),
                     });
                   }}
                   aria-label={lang === 'uk' ? 'Статус завдання' : 'Task status'}
@@ -69,7 +70,12 @@ export default function MobileTaskList({ tasks, lang, teamMembers, onAdd, onOpen
                   <option value="in_review">{getTranslation(lang, 'in_review')}</option>
                   <option value="done">{getTranslation(lang, 'done')}</option>
                 </select>
-                <span>{task.progress}%</span>
+                <span className="mobile-task-progress-value">{progress}%</span>
+                {!task.isMilestone && (
+                  <span className="mobile-task-progress-track" aria-label={`${getTranslation(lang, 'progress')}: ${progress}%`}>
+                    <i style={{ width: `${progress}%`, background: progress === 100 ? 'var(--success)' : (task.color ?? 'var(--primary)') }} />
+                  </span>
+                )}
               </div>
             </article>
           );

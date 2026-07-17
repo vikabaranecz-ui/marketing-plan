@@ -11,6 +11,7 @@ import './App.css';
 import type { Task, MarketingTemplate, ActiveTab, ZoomLevel, Language, TeamMember, Reminder, Idea } from './types';
 import { DEFAULT_TEMPLATES, TEAM_MEMBERS } from './data/templatesData';
 import { getTranslation } from './utils/locales';
+import { normalizeTaskProgress, withAutomaticTaskProgress } from './utils/taskProgress';
 
 import GanttChart from './components/GanttChart';
 import GridView from './components/GridView';
@@ -215,7 +216,9 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const setLocalTasks = (nextTasks: SetStateAction<Task[]>) => {
     localTasksDirtyRef.current = true;
     localTasksRevisionRef.current += 1;
-    setTasks(nextTasks);
+    setTasks(previous => normalizeTaskProgress(
+      typeof nextTasks === 'function' ? nextTasks(previous) : nextTasks
+    ));
   };
 
   const resetPullGesture = () => {
@@ -425,7 +428,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
         nextTasks = activeTemplate.tasks;
       }
     }
-    setTasks(nextTasks);
+    setTasks(normalizeTaskProgress(nextTasks));
     setTasksTemplateId(activeTemplateId);
     localStorage.setItem('gantt_active_template_id', JSON.stringify(activeTemplateId));
     if (planChanged) {
@@ -570,7 +573,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
           setReminders(restoredReminders);
           setIdeas(restoredIdeas);
           setActiveTemplateId(restoredTemplateId);
-          setTasks(restoredTasks);
+          setTasks(normalizeTaskProgress(restoredTasks));
           setTasksTemplateId(restoredTemplateId);
         }
 
@@ -705,7 +708,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
             sharedSaveInFlightRevisionRef.current = null;
           }
           if (localTasksRevisionRef.current === revision) {
-            setTasks(savedTasks);
+            setTasks(normalizeTaskProgress(savedTasks));
           }
           setCloudStatus('synced');
         })
@@ -1252,7 +1255,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const handleUpdateTask = (updatedTask: Task) => {
     if (!canEditActivePlan) return showToast(lang === 'uk' ? 'У вас доступ лише для перегляду' : 'You have view-only access', 'error');
     setLocalTasks(prev => {
-      const syncedTask = syncParentTaskDates(updatedTask);
+      const syncedTask = withAutomaticTaskProgress(syncParentTaskDates(updatedTask));
       const replaced = prev.map(t => t.id === syncedTask.id ? syncedTask : t);
       
       // Save details changes to history with a rate limit to group keystrokes
