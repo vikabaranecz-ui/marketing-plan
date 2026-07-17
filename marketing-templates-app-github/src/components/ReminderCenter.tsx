@@ -67,6 +67,9 @@ export default function ReminderCenter({
   const [subtaskId, setSubtaskId] = useState(defaultTarget.subtaskId || '');
   const [remindAt, setRemindAt] = useState(defaultReminderTime);
   const [note, setNote] = useState('');
+  const [activeView, setActiveView] = useState<'list' | 'create'>(() =>
+    reminders.some(reminder => !reminder.dismissedAt) ? 'list' : 'create'
+  );
 
   const selectedPlan = plans.find(plan => plan.id === planId);
   const selectedTask = selectedPlan?.tasks.find(task => task.id === taskId);
@@ -95,6 +98,7 @@ export default function ReminderCenter({
     });
     setNote('');
     setRemindAt(defaultReminderTime());
+    setActiveView('list');
   };
 
   const formatDateTime = (value: string) => new Intl.DateTimeFormat(lang === 'uk' ? 'uk-UA' : 'en-GB', {
@@ -150,7 +154,29 @@ export default function ReminderCenter({
           </button>
         </div>
 
-        <form className="reminder-form" onSubmit={handleSubmit}>
+        <div className="reminder-view-switch" role="tablist" aria-label={lang === 'uk' ? 'Розділи нагадувань' : 'Reminder sections'}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeView === 'list'}
+            className={activeView === 'list' ? 'active' : ''}
+            onClick={() => setActiveView('list')}
+          >
+            <Bell size={15} />{lang === 'uk' ? 'Мої нагадування' : 'My reminders'}
+            {activeReminders.length > 0 && <strong>{activeReminders.length}</strong>}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeView === 'create'}
+            className={activeView === 'create' ? 'active' : ''}
+            onClick={() => setActiveView('create')}
+          >
+            <Plus size={15} />{lang === 'uk' ? 'Створити' : 'Create'}
+          </button>
+        </div>
+
+        {activeView === 'create' && <form className="reminder-form" onSubmit={handleSubmit}>
           <div className="reminder-target-switch" role="group" aria-label={lang === 'uk' ? 'Тип нагадування' : 'Reminder type'}>
             {(['plan', 'task', 'subtask'] as const).map(type => (
               <button
@@ -228,26 +254,45 @@ export default function ReminderCenter({
             <textarea className="form-control reminder-note" value={note} onChange={event => setNote(event.target.value)} placeholder={lang === 'uk' ? 'Що саме потрібно не забути?' : 'What should you remember?'} />
           </label>
           <button className="btn btn-primary reminder-create-button"><Plus size={16} />{lang === 'uk' ? 'Додати нагадування' : 'Add reminder'}</button>
-        </form>
+        </form>}
 
-        <div className="feature-list-header">
-          <span>{lang === 'uk' ? 'Заплановані' : 'Scheduled'}</span>
-          <strong>{activeReminders.length}</strong>
-        </div>
-        <div className="reminder-list">
-          {activeReminders.map(reminder => (
-            <article className={`reminder-list-item ${Date.parse(reminder.remindAt) <= Date.now() ? 'overdue' : ''}`} key={reminder.id}>
-              <span className="reminder-list-icon"><CalendarClock size={16} /></span>
-              <span className="reminder-list-copy">
-                <strong>{reminder.title}</strong>
-                <small>{getTargetLabel(reminder)}</small>
-                <time><Clock3 size={12} />{formatDateTime(reminder.remindAt)}</time>
-              </span>
-              <button className="btn-icon danger-icon" onClick={() => onDelete(reminder.id)} aria-label={lang === 'uk' ? 'Видалити нагадування' : 'Delete reminder'}><Trash2 size={15} /></button>
-            </article>
-          ))}
-          {activeReminders.length === 0 && <div className="feature-empty-state"><Bell size={21} /><span>{lang === 'uk' ? 'Нагадувань ще немає' : 'No reminders yet'}</span></div>}
-        </div>
+        {activeView === 'list' && <div className="reminder-list-panel" role="tabpanel">
+          <div className="feature-list-header">
+            <span>{lang === 'uk' ? 'Заплановані' : 'Scheduled'}</span>
+            <strong>{activeReminders.length}</strong>
+          </div>
+          <div className="reminder-list">
+            {activeReminders.map(reminder => (
+              <article className={`reminder-list-item ${Date.parse(reminder.remindAt) <= Date.now() ? 'overdue' : ''}`} key={reminder.id}>
+                <span className="reminder-list-icon"><CalendarClock size={16} /></span>
+                <span className="reminder-list-copy">
+                  <strong>{reminder.title}</strong>
+                  <small>{getTargetLabel(reminder)}</small>
+                  {reminder.note && <small className="reminder-list-note">{reminder.note}</small>}
+                  <time><Clock3 size={12} />{formatDateTime(reminder.remindAt)}</time>
+                </span>
+                <button
+                  type="button"
+                  className="btn-icon danger-icon reminder-delete-button"
+                  onClick={() => onDelete(reminder.id)}
+                  title={lang === 'uk' ? 'Видалити нагадування' : 'Delete reminder'}
+                  aria-label={`${lang === 'uk' ? 'Видалити нагадування' : 'Delete reminder'}: ${reminder.title}`}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </article>
+            ))}
+            {activeReminders.length === 0 && (
+              <div className="feature-empty-state">
+                <Bell size={21} />
+                <span>{lang === 'uk' ? 'Нагадувань ще немає' : 'No reminders yet'}</span>
+                <button type="button" className="btn btn-primary btn-compact" onClick={() => setActiveView('create')}>
+                  <Plus size={15} />{lang === 'uk' ? 'Створити нагадування' : 'Create reminder'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>}
       </section>
     </>
   );
