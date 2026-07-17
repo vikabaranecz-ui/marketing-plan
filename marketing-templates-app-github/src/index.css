@@ -3875,6 +3875,17 @@ textarea:focus-visible {
   flex-direction: column;
 }
 
+.feature-dialog-header > .feature-dialog-actions {
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.reminder-sound-test {
+  white-space: nowrap;
+}
+
 .feature-dialog-header h2 {
   font-size: 1.14rem;
   line-height: 1.2;
@@ -6217,6 +6228,21 @@ textarea:focus-visible {
 }
 
 @media (max-width: 700px) {
+  .reminder-sound-test {
+    width: 38px;
+    min-width: 38px;
+    padding: 0;
+  }
+
+  .reminder-sound-test span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
   .handwriting-dialog {
     top: auto;
     bottom: 0;

@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { Bell, CalendarClock, Clock3, Plus, Trash2, X } from 'lucide-react';
+import { Bell, CalendarClock, Clock3, Plus, Trash2, Volume2, X } from 'lucide-react';
 import type { Language, Reminder, ReminderTargetType } from '../types';
 
 export interface ReminderPlanOption {
@@ -27,6 +27,7 @@ interface ReminderCenterProps {
   onClose: () => void;
   onCreate: (reminder: Omit<Reminder, 'id' | 'createdAt'>) => void;
   onDelete: (reminderId: string) => void;
+  onTestSound: () => void;
   getTargetLabel: (reminder: Reminder) => string;
 }
 
@@ -50,6 +51,7 @@ export default function ReminderCenter({
   onClose,
   onCreate,
   onDelete,
+  onTestSound,
   getTargetLabel,
 }: ReminderCenterProps) {
   const [targetType, setTargetType] = useState(defaultTarget.targetType);
@@ -105,7 +107,12 @@ export default function ReminderCenter({
               <p>{lang === 'uk' ? 'Оберіть план, завдання або підзавдання та точний час.' : 'Choose a plan, task or subtask and an exact time.'}</p>
             </div>
           </div>
-          <button className="btn-icon" onClick={onClose} aria-label={lang === 'uk' ? 'Закрити' : 'Close'}><X size={17} /></button>
+          <div className="feature-dialog-actions">
+            <button className="btn btn-secondary btn-compact reminder-sound-test" type="button" onClick={onTestSound}>
+              <Volume2 size={15} /><span>{lang === 'uk' ? 'Перевірити звук' : 'Test sound'}</span>
+            </button>
+            <button className="btn-icon" type="button" onClick={onClose} aria-label={lang === 'uk' ? 'Закрити' : 'Close'}><X size={17} /></button>
+          </div>
         </header>
 
         <form className="reminder-form" onSubmit={handleSubmit}>

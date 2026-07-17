@@ -24,6 +24,7 @@ import MobilePlansView from './components/MobilePlansView';
 import ReminderCenter, { type ReminderPlanOption, type ReminderTargetDraft } from './components/ReminderCenter';
 import ReminderAlert from './components/ReminderAlert';
 import IdeasDialog from './components/IdeasDialog';
+import { playReminderSound, unlockReminderSound } from './lib/reminderSound';
 import {
   ensureCloudUser,
   loadCloudState,
@@ -171,6 +172,22 @@ function App({ accountEmail, onSignOut }: AppProps) {
   useEffect(() => {
     cloudStatusRef.current = cloudStatus;
   }, [cloudStatus]);
+
+  useEffect(() => {
+    const unlockSound = () => {
+      void unlockReminderSound(false).then(isReady => {
+        if (!isReady) return;
+        window.removeEventListener('pointerdown', unlockSound);
+        window.removeEventListener('keydown', unlockSound);
+      });
+    };
+    window.addEventListener('pointerdown', unlockSound);
+    window.addEventListener('keydown', unlockSound);
+    return () => {
+      window.removeEventListener('pointerdown', unlockSound);
+      window.removeEventListener('keydown', unlockSound);
+    };
+  }, []);
 
   const setLocalTasks = (nextTasks: SetStateAction<Task[]>) => {
     localTasksDirtyRef.current = true;
@@ -1628,6 +1645,8 @@ function App({ accountEmail, onSignOut }: AppProps) {
         .sort((a, b) => Date.parse(a.remindAt) - Date.parse(b.remindAt))[0];
       if (!dueReminder) return;
       setActiveReminderId(dueReminder.id);
+      void playReminderSound();
+      if ('vibrate' in navigator) navigator.vibrate([120, 70, 120]);
       if ('Notification' in window && Notification.permission === 'granted') {
         try {
           new Notification(`${lang === 'uk' ? 'Нагадування' : 'Reminder'}: ${dueReminder.title}`, {
@@ -2566,6 +2585,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
           onClose={() => setIsReminderCenterOpen(false)}
           onCreate={handleCreateReminder}
           onDelete={handleDeleteReminder}
+          onTestSound={() => { void unlockReminderSound(true); }}
           getTargetLabel={getReminderTargetLabel}
         />
       )}
