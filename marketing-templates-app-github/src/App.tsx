@@ -2640,7 +2640,6 @@ function App({ accountEmail, onSignOut }: AppProps) {
           onCreate={handleCreateReminder}
           onDelete={handleDeleteReminder}
           onTestSound={() => { void unlockReminderSound(true); }}
-          pushStatus={pushStatus}
           getTargetLabel={getReminderTargetLabel}
         />
       )}

@@ -1,7 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { Bell, BellRing, CalendarClock, Clock3, Plus, Smartphone, Trash2, Volume2, X } from 'lucide-react';
+import { Bell, CalendarClock, Clock3, Plus, Trash2, Volume2, X } from 'lucide-react';
 import type { Language, Reminder, ReminderTargetType } from '../types';
-import type { PushNotificationStatus } from '../lib/pushNotifications';
 
 export interface ReminderPlanOption {
   id: string;
@@ -29,7 +28,6 @@ interface ReminderCenterProps {
   onCreate: (reminder: Omit<Reminder, 'id' | 'createdAt'>) => void;
   onDelete: (reminderId: string) => void;
   onTestSound: () => void;
-  pushStatus: PushNotificationStatus;
   getTargetLabel: (reminder: Reminder) => string;
 }
 
@@ -54,7 +52,6 @@ export default function ReminderCenter({
   onCreate,
   onDelete,
   onTestSound,
-  pushStatus,
   getTargetLabel,
 }: ReminderCenterProps) {
   const [targetType, setTargetType] = useState(defaultTarget.targetType);
@@ -121,26 +118,6 @@ export default function ReminderCenter({
             <button className="btn-icon" type="button" onClick={onClose} aria-label={lang === 'uk' ? 'Закрити' : 'Close'}><X size={17} /></button>
           </div>
         </header>
-
-        <div className={`push-delivery-card ${pushStatus === 'enabled' ? 'enabled' : ''}`}>
-          <span className="push-delivery-icon">{pushStatus === 'enabled' ? <BellRing size={20} /> : <Smartphone size={20} />}</span>
-          <span className="push-delivery-copy">
-            <strong>{lang === 'uk' ? 'Нагадування безпосередньо на телефон' : 'Reminders directly on your phone'}</strong>
-            <small>
-              {lang === 'uk'
-                ? pushStatus === 'enabled' ? 'Дозвіл збережено — надсилання завжди автоматичне, навіть коли додаток закритий.'
-                  : pushStatus === 'denied' ? 'Сповіщення заблоковані в налаштуваннях телефона.'
-                    : pushStatus === 'unsupported' ? 'На iPhone додайте застосунок на головний екран, а потім відкрийте його звідти.'
-                      : pushStatus === 'loading' ? 'Перевіряємо системний дозвіл…'
-                        : 'Під час створення першого нагадування дозвіл потрібно підтвердити лише один раз.'
-                : pushStatus === 'enabled' ? 'Permission saved — delivery is always automatic, even when the app is closed.'
-                  : pushStatus === 'denied' ? 'Notifications are blocked in your phone settings.'
-                    : pushStatus === 'unsupported' ? 'On iPhone, add the app to your Home Screen and open it from there.'
-                      : pushStatus === 'loading' ? 'Checking system permission…'
-                        : 'When creating the first reminder, permission only needs to be confirmed once.'}
-            </small>
-          </span>
-        </div>
 
         <div className="reminder-view-switch" role="tablist" aria-label={lang === 'uk' ? 'Розділи нагадувань' : 'Reminder sections'}>
           <button
