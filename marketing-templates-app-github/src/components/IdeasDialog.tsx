@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { Archive, ArrowRight, CalendarDays, Lightbulb, Plus, Trash2, X } from 'lucide-react';
+import { Archive, ArrowRight, CalendarDays, Lightbulb, PenLine, Plus, Trash2, X } from 'lucide-react';
 import type { Idea, Language } from '../types';
+import HandwritingInputDialog from './HandwritingInputDialog';
 
 interface IdeasDialogProps {
   ideas: Idea[];
@@ -19,6 +20,7 @@ export default function IdeasDialog({ ideas, plans, lang, onClose, onCreate, onA
   const [planId, setPlanId] = useState('');
   const [reviewDate, setReviewDate] = useState('');
   const [reviewIntervalDays, setReviewIntervalDays] = useState(0);
+  const [handwritingField, setHandwritingField] = useState<'title' | 'description' | null>(null);
   const activeIdeas = useMemo(() => ideas
     .filter(idea => idea.status !== 'archived')
     .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)), [ideas]);
@@ -59,8 +61,14 @@ export default function IdeasDialog({ ideas, plans, lang, onClose, onCreate, onA
         </header>
 
         <form className="idea-create-form" onSubmit={handleSubmit}>
-          <input className="form-control idea-title-input" value={title} onChange={event => setTitle(event.target.value)} placeholder={lang === 'uk' ? 'Коротка назва ідеї' : 'Short idea title'} required />
-          <textarea className="form-control idea-description-input" value={description} onChange={event => setDescription(event.target.value)} placeholder={lang === 'uk' ? 'Опишіть ідею, контекст або наступний крок…' : 'Describe the idea, context or next step…'} />
+          <div className="handwriting-field-row">
+            <input className="form-control idea-title-input" value={title} onChange={event => setTitle(event.target.value)} placeholder={lang === 'uk' ? 'Коротка назва ідеї' : 'Short idea title'} required />
+            <button type="button" className="handwriting-trigger" onClick={() => setHandwritingField('title')} aria-label={lang === 'uk' ? 'Написати назву ідеї Apple Pencil' : 'Write idea title with Apple Pencil'} title="Apple Pencil"><PenLine size={17} /></button>
+          </div>
+          <div className="handwriting-field-row handwriting-textarea-row">
+            <textarea className="form-control idea-description-input" value={description} onChange={event => setDescription(event.target.value)} placeholder={lang === 'uk' ? 'Опишіть ідею, контекст або наступний крок…' : 'Describe the idea, context or next step…'} />
+            <button type="button" className="handwriting-trigger" onClick={() => setHandwritingField('description')} aria-label={lang === 'uk' ? 'Написати опис ідеї Apple Pencil' : 'Write idea description with Apple Pencil'} title="Apple Pencil"><PenLine size={17} /></button>
+          </div>
           <div className="idea-form-options">
             <label>
               <span>{lang === 'uk' ? 'Пов’язати з планом' : 'Link to plan'}</span>
@@ -112,6 +120,19 @@ export default function IdeasDialog({ ideas, plans, lang, onClose, onCreate, onA
           ))}
           {activeIdeas.length === 0 && <div className="feature-empty-state"><Lightbulb size={22} /><span>{lang === 'uk' ? 'Запишіть першу ідею — навіть якщо вона ще не належить до жодного плану.' : 'Capture your first idea, even if it does not belong to a plan yet.'}</span></div>}
         </div>
+
+        {handwritingField && (
+          <HandwritingInputDialog
+            value={handwritingField === 'title' ? title : description}
+            title={handwritingField === 'title'
+              ? (lang === 'uk' ? 'Назва ідеї від руки' : 'Handwrite idea title')
+              : (lang === 'uk' ? 'Опис ідеї від руки' : 'Handwrite idea description')}
+            multiline={handwritingField === 'description'}
+            lang={lang}
+            onApply={handwritingField === 'title' ? setTitle : setDescription}
+            onClose={() => setHandwritingField(null)}
+          />
+        )}
       </section>
     </>
   );

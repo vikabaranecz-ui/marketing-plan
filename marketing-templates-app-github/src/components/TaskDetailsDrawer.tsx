@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import type { Task, TaskComment, SubTask, Language, TeamMember, Reminder } from '../types';
 import { getTranslation } from '../utils/locales';
-import { X, Plus, Trash2, CheckSquare, MessageSquare, AlertTriangle, Send, Copy, Archive, Bell } from 'lucide-react';
+import { X, Plus, Trash2, CheckSquare, MessageSquare, AlertTriangle, Send, Copy, Archive, Bell, PenLine } from 'lucide-react';
+import HandwritingInputDialog from './HandwritingInputDialog';
 
 interface TaskDetailsDrawerProps {
   task: Task;
@@ -58,6 +59,12 @@ export default function TaskDetailsDrawer({
 }: TaskDetailsDrawerProps) {
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [newCommentContent, setNewCommentContent] = useState('');
+  const [handwritingEditor, setHandwritingEditor] = useState<{
+    title: string;
+    value: string;
+    multiline?: boolean;
+    onApply: (value: string) => void;
+  } | null>(null);
 
   // Color palette options
   const colorOptions = [
@@ -218,23 +225,42 @@ export default function TaskDetailsDrawer({
           {/* Title */}
           <div className="form-group">
             <label>{getTranslation(lang, 'taskTitle')}</label>
-            <input
-              type="text"
-              className="form-control"
-              value={task.title}
-              onChange={e => handleFieldChange('title', e.target.value)}
-            />
+            <div className="handwriting-field-row">
+              <input
+                type="text"
+                className="form-control"
+                value={task.title}
+                onChange={e => handleFieldChange('title', e.target.value)}
+              />
+              <button type="button" className="handwriting-trigger" onClick={() => setHandwritingEditor({
+                title: lang === 'uk' ? 'Назва завдання від руки' : 'Handwrite task title',
+                value: task.title,
+                onApply: value => handleFieldChange('title', value),
+              })} aria-label={lang === 'uk' ? 'Написати назву Apple Pencil' : 'Write title with Apple Pencil'} title="Apple Pencil">
+                <PenLine size={17} />
+              </button>
+            </div>
           </div>
 
           {/* Description */}
           <div className="form-group">
             <label>{getTranslation(lang, 'description')}</label>
-            <textarea
-              className="form-control"
-              style={{ minHeight: '80px', resize: 'vertical' }}
-              value={task.description}
-              onChange={e => handleFieldChange('description', e.target.value)}
-            />
+            <div className="handwriting-field-row handwriting-textarea-row">
+              <textarea
+                className="form-control"
+                style={{ minHeight: '80px', resize: 'vertical' }}
+                value={task.description}
+                onChange={e => handleFieldChange('description', e.target.value)}
+              />
+              <button type="button" className="handwriting-trigger" onClick={() => setHandwritingEditor({
+                title: lang === 'uk' ? 'Опис завдання від руки' : 'Handwrite task description',
+                value: task.description,
+                multiline: true,
+                onApply: value => handleFieldChange('description', value),
+              })} aria-label={lang === 'uk' ? 'Написати опис Apple Pencil' : 'Write description with Apple Pencil'} title="Apple Pencil">
+                <PenLine size={17} />
+              </button>
+            </div>
           </div>
 
           {/* Dates */}
@@ -405,6 +431,13 @@ export default function TaskDetailsDrawer({
                 value={newSubtaskTitle}
                 onChange={e => setNewSubtaskTitle(e.target.value)}
               />
+              <button type="button" className="handwriting-trigger" onClick={() => setHandwritingEditor({
+                title: lang === 'uk' ? 'Нове підзавдання від руки' : 'Handwrite a new subtask',
+                value: newSubtaskTitle,
+                onApply: setNewSubtaskTitle,
+              })} aria-label={lang === 'uk' ? 'Написати підзавдання Apple Pencil' : 'Write subtask with Apple Pencil'} title="Apple Pencil">
+                <PenLine size={16} />
+              </button>
               <button type="submit" className="btn btn-secondary" style={{ width: 'auto', padding: '0 12px' }}>
                 <Plus size={16} />
               </button>
@@ -421,6 +454,13 @@ export default function TaskDetailsDrawer({
                       onChange={() => handleToggleSubtask(s.id)}
                     />
                     <span style={{ flex: 1, fontSize: '0.82rem', fontWeight: 500 }}>{s.title}</span>
+                    <button type="button" className="btn-icon subtask-handwriting-button" onClick={() => setHandwritingEditor({
+                      title: lang === 'uk' ? 'Назва підзавдання від руки' : 'Handwrite subtask title',
+                      value: s.title,
+                      onApply: value => handleFieldChange('subtasks', task.subtasks.map(sub => sub.id === s.id ? { ...sub, title: value } : sub)),
+                    })} aria-label={lang === 'uk' ? `Написати «${s.title}» Apple Pencil` : `Write “${s.title}” with Apple Pencil`} title="Apple Pencil">
+                      <PenLine size={12} />
+                    </button>
                     <button
                       type="button"
                       className="btn-icon subtask-reminder-button"
@@ -574,6 +614,17 @@ export default function TaskDetailsDrawer({
             </div>
           </div>
         </div>
+
+        {handwritingEditor && (
+          <HandwritingInputDialog
+            value={handwritingEditor.value}
+            title={handwritingEditor.title}
+            multiline={handwritingEditor.multiline}
+            lang={lang}
+            onApply={handwritingEditor.onApply}
+            onClose={() => setHandwritingEditor(null)}
+          />
+        )}
 
         {/* Footer actions */}
         <div className="drawer-footer">
