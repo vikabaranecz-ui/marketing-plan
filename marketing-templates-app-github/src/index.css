@@ -3888,7 +3888,7 @@ textarea:focus-visible {
 
 .push-delivery-card {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 12px;
   margin: 16px 20px 0;
@@ -6343,12 +6343,6 @@ textarea:focus-visible {
     grid-template-columns: auto minmax(0, 1fr);
     margin: 12px 14px 0;
     padding: 12px;
-  }
-
-  .push-delivery-card > .btn {
-    grid-column: 1 / -1;
-    width: 100%;
-    min-height: 42px;
   }
 
   .reminder-sound-test {

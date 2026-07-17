@@ -30,8 +30,6 @@ interface ReminderCenterProps {
   onDelete: (reminderId: string) => void;
   onTestSound: () => void;
   pushStatus: PushNotificationStatus;
-  onEnablePush: () => void;
-  onDisablePush: () => void;
   getTargetLabel: (reminder: Reminder) => string;
 }
 
@@ -57,8 +55,6 @@ export default function ReminderCenter({
   onDelete,
   onTestSound,
   pushStatus,
-  onEnablePush,
-  onDisablePush,
   getTargetLabel,
 }: ReminderCenterProps) {
   const [targetType, setTargetType] = useState(defaultTarget.targetType);
@@ -132,26 +128,18 @@ export default function ReminderCenter({
             <strong>{lang === 'uk' ? 'Нагадування безпосередньо на телефон' : 'Reminders directly on your phone'}</strong>
             <small>
               {lang === 'uk'
-                ? pushStatus === 'enabled' ? 'Увімкнено — працює навіть коли додаток закритий.'
+                ? pushStatus === 'enabled' ? 'Дозвіл збережено — надсилання завжди автоматичне, навіть коли додаток закритий.'
                   : pushStatus === 'denied' ? 'Сповіщення заблоковані в налаштуваннях телефона.'
                     : pushStatus === 'unsupported' ? 'На iPhone додайте застосунок на головний екран, а потім відкрийте його звідти.'
-                      : 'Увімкніть системні push-сповіщення зі звуком.'
-                : pushStatus === 'enabled' ? 'Enabled — works even when the app is closed.'
+                      : pushStatus === 'loading' ? 'Перевіряємо системний дозвіл…'
+                        : 'Під час створення першого нагадування дозвіл потрібно підтвердити лише один раз.'
+                : pushStatus === 'enabled' ? 'Permission saved — delivery is always automatic, even when the app is closed.'
                   : pushStatus === 'denied' ? 'Notifications are blocked in your phone settings.'
                     : pushStatus === 'unsupported' ? 'On iPhone, add the app to your Home Screen and open it from there.'
-                      : 'Enable system push notifications with sound.'}
+                      : pushStatus === 'loading' ? 'Checking system permission…'
+                        : 'When creating the first reminder, permission only needs to be confirmed once.'}
             </small>
           </span>
-          <button
-            className={`btn btn-compact ${pushStatus === 'enabled' ? 'btn-secondary' : 'btn-primary'}`}
-            type="button"
-            onClick={pushStatus === 'enabled' ? onDisablePush : onEnablePush}
-            disabled={pushStatus === 'loading' || pushStatus === 'unsupported' || pushStatus === 'denied'}
-          >
-            {pushStatus === 'enabled'
-              ? (lang === 'uk' ? 'Вимкнути' : 'Disable')
-              : (lang === 'uk' ? 'Увімкнути' : 'Enable')}
-          </button>
         </div>
 
         <div className="reminder-view-switch" role="tablist" aria-label={lang === 'uk' ? 'Розділи нагадувань' : 'Reminder sections'}>

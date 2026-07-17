@@ -26,7 +26,6 @@ import ReminderAlert from './components/ReminderAlert';
 import IdeasDialog from './components/IdeasDialog';
 import { playReminderSound, unlockReminderSound } from './lib/reminderSound';
 import {
-  disablePushNotifications,
   enablePushNotifications,
   getPushNotificationStatus,
   syncPushReminders,
@@ -745,16 +744,19 @@ function App({ accountEmail, onSignOut }: AppProps) {
       createdAt: new Date().toISOString(),
     };
     setReminders(previous => [...previous, reminder]);
+    if (pushStatus === 'disabled' || pushStatus === 'loading') {
+      void handleEnablePush([...reminders, reminder]);
+    }
     showToast(lang === 'uk' ? 'Нагадування додано' : 'Reminder added');
   };
 
-  const handleEnablePush = async () => {
+  const handleEnablePush = async (remindersToSync: Reminder[] = reminders) => {
     setPushStatus('loading');
     try {
       await enablePushNotifications();
-      await syncPushReminders(reminders);
+      await syncPushReminders(remindersToSync);
       setPushStatus('enabled');
-      showToast(lang === 'uk' ? 'Push-нагадування на телефон увімкнено' : 'Phone push reminders enabled');
+      showToast(lang === 'uk' ? 'Дозвіл збережено — нагадування надходитимуть автоматично' : 'Permission saved — reminders will arrive automatically');
     } catch (error) {
       console.error('Push notification setup failed', error);
       const status = await getPushNotificationStatus().catch(() => 'disabled' as const);
@@ -763,19 +765,6 @@ function App({ accountEmail, onSignOut }: AppProps) {
         lang === 'uk' ? 'Не вдалося ввімкнути push. Перевірте дозвіл сповіщень.' : 'Could not enable push. Check notification permission.',
         'error',
       );
-    }
-  };
-
-  const handleDisablePush = async () => {
-    setPushStatus('loading');
-    try {
-      await disablePushNotifications();
-      setPushStatus('disabled');
-      showToast(lang === 'uk' ? 'Push-нагадування вимкнено' : 'Phone push reminders disabled');
-    } catch (error) {
-      console.error('Push notification disable failed', error);
-      setPushStatus('enabled');
-      showToast(lang === 'uk' ? 'Не вдалося вимкнути push' : 'Could not disable push', 'error');
     }
   };
 
@@ -2652,8 +2641,6 @@ function App({ accountEmail, onSignOut }: AppProps) {
           onDelete={handleDeleteReminder}
           onTestSound={() => { void unlockReminderSound(true); }}
           pushStatus={pushStatus}
-          onEnablePush={() => { void handleEnablePush(); }}
-          onDisablePush={() => { void handleDisablePush(); }}
           getTargetLabel={getReminderTargetLabel}
         />
       )}
