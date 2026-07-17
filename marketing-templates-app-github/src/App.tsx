@@ -26,6 +26,13 @@ import ReminderAlert from './components/ReminderAlert';
 import IdeasDialog from './components/IdeasDialog';
 import { playReminderSound, unlockReminderSound } from './lib/reminderSound';
 import {
+  disablePushNotifications,
+  enablePushNotifications,
+  getPushNotificationStatus,
+  syncPushReminders,
+  type PushNotificationStatus,
+} from './lib/pushNotifications';
+import {
   ensureCloudUser,
   loadCloudState,
   saveCloudState,
@@ -166,12 +173,29 @@ function App({ accountEmail, onSignOut }: AppProps) {
     planId: activeTemplateId,
   });
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [pushStatus, setPushStatus] = useState<PushNotificationStatus>('loading');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pushSyncTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     cloudStatusRef.current = cloudStatus;
   }, [cloudStatus]);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+    let cancelled = false;
+    void getPushNotificationStatus()
+      .then(async status => {
+        if (status === 'enabled') await enablePushNotifications();
+        if (!cancelled) setPushStatus(status);
+      })
+      .catch(error => {
+        console.warn('Push notification status check failed', error);
+        if (!cancelled) setPushStatus('disabled');
+      });
+    return () => { cancelled = true; };
+  }, [currentUserId]);
 
   useEffect(() => {
     const unlockSound = () => {
@@ -721,10 +745,38 @@ function App({ accountEmail, onSignOut }: AppProps) {
       createdAt: new Date().toISOString(),
     };
     setReminders(previous => [...previous, reminder]);
-    if ('Notification' in window && Notification.permission === 'default') {
-      void Notification.requestPermission();
-    }
     showToast(lang === 'uk' ? 'Нагадування додано' : 'Reminder added');
+  };
+
+  const handleEnablePush = async () => {
+    setPushStatus('loading');
+    try {
+      await enablePushNotifications();
+      await syncPushReminders(reminders);
+      setPushStatus('enabled');
+      showToast(lang === 'uk' ? 'Push-нагадування на телефон увімкнено' : 'Phone push reminders enabled');
+    } catch (error) {
+      console.error('Push notification setup failed', error);
+      const status = await getPushNotificationStatus().catch(() => 'disabled' as const);
+      setPushStatus(status);
+      showToast(
+        lang === 'uk' ? 'Не вдалося ввімкнути push. Перевірте дозвіл сповіщень.' : 'Could not enable push. Check notification permission.',
+        'error',
+      );
+    }
+  };
+
+  const handleDisablePush = async () => {
+    setPushStatus('loading');
+    try {
+      await disablePushNotifications();
+      setPushStatus('disabled');
+      showToast(lang === 'uk' ? 'Push-нагадування вимкнено' : 'Phone push reminders disabled');
+    } catch (error) {
+      console.error('Push notification disable failed', error);
+      setPushStatus('enabled');
+      showToast(lang === 'uk' ? 'Не вдалося вимкнути push' : 'Could not disable push', 'error');
+    }
   };
 
   const handleDeleteReminder = (reminderId: string) => {
@@ -1638,6 +1690,19 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const selectedTask = tasks.find(t => t.id === selectedTaskId) || null;
 
   useEffect(() => {
+    if (!currentUserId || pushStatus !== 'enabled' || !cloudHydratedRef.current) return;
+    if (pushSyncTimerRef.current !== null) window.clearTimeout(pushSyncTimerRef.current);
+    pushSyncTimerRef.current = window.setTimeout(() => {
+      void syncPushReminders(reminders).catch(error => {
+        console.error('Push reminder sync failed', error);
+      });
+    }, 700);
+    return () => {
+      if (pushSyncTimerRef.current !== null) window.clearTimeout(pushSyncTimerRef.current);
+    };
+  }, [currentUserId, pushStatus, reminders]);
+
+  useEffect(() => {
     const checkDueReminders = () => {
       if (activeReminderId) return;
       const dueReminder = reminders
@@ -1647,7 +1712,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
       setActiveReminderId(dueReminder.id);
       void playReminderSound();
       if ('vibrate' in navigator) navigator.vibrate([120, 70, 120]);
-      if ('Notification' in window && Notification.permission === 'granted') {
+      if (pushStatus !== 'enabled' && 'Notification' in window && Notification.permission === 'granted') {
         try {
           new Notification(`${lang === 'uk' ? 'Нагадування' : 'Reminder'}: ${dueReminder.title}`, {
             body: dueReminder.note || dueReminder.title,
@@ -1670,7 +1735,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
       window.clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [activeReminderId, ideas, lang, reminders]);
+  }, [activeReminderId, ideas, lang, pushStatus, reminders]);
 
   const renderTemplateIcon = (iconName: string) => {
     switch (iconName) {
@@ -2586,6 +2651,9 @@ function App({ accountEmail, onSignOut }: AppProps) {
           onCreate={handleCreateReminder}
           onDelete={handleDeleteReminder}
           onTestSound={() => { void unlockReminderSound(true); }}
+          pushStatus={pushStatus}
+          onEnablePush={() => { void handleEnablePush(); }}
+          onDisablePush={() => { void handleDisablePush(); }}
           getTargetLabel={getReminderTargetLabel}
         />
       )}

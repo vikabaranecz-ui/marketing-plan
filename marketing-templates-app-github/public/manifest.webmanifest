@@ -3,6 +3,7 @@
   "short_name": "Marketing Plan",
   "description": "Приватні та командні маркетингові плани, задачі, прогрес і коментарі.",
   "lang": "uk",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

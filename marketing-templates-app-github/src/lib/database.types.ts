@@ -39,6 +39,18 @@ export type Database = {
         Update: { archived?: boolean; created_at?: string; id?: string; last_edited_by?: string | null; owner_id?: string; source_plan_id?: string; tasks?: Json; team_id?: string; template?: Json; title?: string; updated_at?: string };
         Relationships: [];
       };
+      push_subscriptions: {
+        Row: { id: string; user_id: string; endpoint: string; p256dh: string; auth_key: string; user_agent: string; created_at: string; updated_at: string };
+        Insert: { id?: string; user_id: string; endpoint: string; p256dh: string; auth_key: string; user_agent?: string; created_at?: string; updated_at?: string };
+        Update: { id?: string; user_id?: string; endpoint?: string; p256dh?: string; auth_key?: string; user_agent?: string; created_at?: string; updated_at?: string };
+        Relationships: [];
+      };
+      push_reminders: {
+        Row: { user_id: string; reminder_id: string; title: string; body: string; target_label: string; remind_at: string; sent_at: string | null; created_at: string; updated_at: string };
+        Insert: { user_id: string; reminder_id: string; title: string; body?: string; target_label?: string; remind_at: string; sent_at?: string | null; created_at?: string; updated_at?: string };
+        Update: { user_id?: string; reminder_id?: string; title?: string; body?: string; target_label?: string; remind_at?: string; sent_at?: string | null; created_at?: string; updated_at?: string };
+        Relationships: [];
+      };
       team_members: {
         Row: { created_at: string; display_name: string; email: string; role: string; team_id: string; user_id: string };
         Insert: { created_at?: string; display_name?: string; email: string; role?: string; team_id: string; user_id: string };
@@ -57,6 +69,9 @@ export type Database = {
       create_team: { Args: { team_name: string }; Returns: string };
       add_team_member_by_email: { Args: { target_team_id: string; target_email: string; target_role?: string }; Returns: Database['public']['Tables']['team_members']['Row'] };
       remove_team_member: { Args: { target_team_id: string; target_user_id: string }; Returns: undefined };
+      register_push_subscription: { Args: { p_endpoint: string; p_p256dh: string; p_auth_key: string; p_user_agent?: string }; Returns: string };
+      unregister_push_subscription: { Args: { p_endpoint: string }; Returns: undefined };
+      sync_push_reminders: { Args: { p_reminders: Json }; Returns: undefined };
     };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
