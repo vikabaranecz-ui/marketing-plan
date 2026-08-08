@@ -77,6 +77,27 @@ export interface Idea {
   convertedPlanId?: string;
 }
 
+export interface WorkspaceNote {
+  id: string;
+  title: string;
+  content: string;
+  planId?: string;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkspaceDocument {
+  id: string;
+  name: string;
+  storagePath: string;
+  mimeType: string;
+  size: number;
+  planId?: string;
+  note?: string;
+  createdAt: string;
+}
+
 export interface TeamMember {
   name: string;
   roleUa: string;
@@ -85,5 +106,5 @@ export interface TeamMember {
 }
 
 export type ZoomLevel = 'days' | 'weeks' | 'months';
-export type ActiveTab = 'plans' | 'gantt' | 'grid' | 'kanban' | 'workload';
+export type ActiveTab = 'home' | 'plans' | 'all_tasks' | 'gantt' | 'grid' | 'kanban' | 'workload' | 'notes' | 'assistant';
 export type Language = 'uk' | 'en';

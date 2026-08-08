@@ -22,6 +22,7 @@ export interface TodayPlanGroup {
 
 interface TodayPanelProps {
   groups: TodayPlanGroup[];
+  unfinishedGroups: TodayPlanGroup[];
   lang: Language;
   referenceDate: string;
   onOpenPlan: (planId: string) => void;
@@ -69,7 +70,8 @@ const getDeadlineLabel = (endDate: string, referenceDate: string, lang: Language
   return lang === 'uk' ? `До ${dateLabel}` : `Due ${dateLabel}`;
 };
 
-export default function TodayPanel({ groups, lang, referenceDate, onOpenPlan, onOpenTask }: TodayPanelProps) {
+export default function TodayPanel({ groups, unfinishedGroups, lang, referenceDate, onOpenPlan, onOpenTask }: TodayPanelProps) {
+  const [mode, setMode] = useState<'today' | 'unfinished'>('today');
   const [isOpen, setIsOpen] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('gantt_today_panel_open_v2');
@@ -79,6 +81,8 @@ export default function TodayPanel({ groups, lang, referenceDate, onOpenPlan, on
     }
   });
   const totalItems = groups.reduce((sum, group) => sum + group.items.length, 0);
+  const unfinishedCount = unfinishedGroups.reduce((sum, group) => sum + group.items.length, 0);
+  const visibleGroups = mode === 'today' ? groups : unfinishedGroups;
   const todayLabel = new Intl.DateTimeFormat(lang === 'uk' ? 'uk-UA' : 'en-US', {
     weekday: 'long',
     day: 'numeric',
@@ -113,7 +117,11 @@ export default function TodayPanel({ groups, lang, referenceDate, onOpenPlan, on
 
         {isOpen && (
           <div className="today-panel-content">
-            {groups.length > 0 ? groups.map(group => (
+            <div className="today-panel-tabs" role="tablist">
+              <button className={mode === 'today' ? 'active' : ''} onClick={() => setMode('today')}>{lang === 'uk' ? 'На сьогодні' : 'Today'} <span>{totalItems}</span></button>
+              <button className={mode === 'unfinished' ? 'active' : ''} onClick={() => setMode('unfinished')}>{lang === 'uk' ? 'Не завершено' : 'Unfinished'} <span>{unfinishedCount}</span></button>
+            </div>
+            {visibleGroups.length > 0 ? visibleGroups.map(group => (
               <section className="today-plan-group" key={group.id}>
                 <button className="today-plan-header" onClick={() => onOpenPlan(group.id)}>
                   <span className="today-plan-color" style={{ background: group.color }} />
@@ -150,7 +158,7 @@ export default function TodayPanel({ groups, lang, referenceDate, onOpenPlan, on
             )) : (
               <div className="today-panel-empty">
                 <CheckCircle2 size={24} />
-                <strong>{lang === 'uk' ? 'На сьогодні нічого не заплановано' : 'Nothing scheduled for today'}</strong>
+                <strong>{mode === 'today' ? (lang === 'uk' ? 'На сьогодні нічого не заплановано' : 'Nothing scheduled for today') : (lang === 'uk' ? 'Усі завдання завершені' : 'All tasks are complete')}</strong>
                 <span>{lang === 'uk' ? 'Можна зосередитися на наступних кроках.' : 'You can focus on what comes next.'}</span>
               </div>
             )}

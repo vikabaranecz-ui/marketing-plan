@@ -168,8 +168,9 @@ export default function GanttChart({
 
   // 1. Calculate Timeline Range boundaries
   const getTimelineBounds = () => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     if (rowItems.length === 0) {
-      const today = new Date();
       return {
         start: addDays(today, -5),
         end: addDays(today, 25)
@@ -179,8 +180,8 @@ export default function GanttChart({
     const startDates = rowItems.map(r => parseLocalDate(r.startDate).getTime());
     const endDates = rowItems.map(r => parseLocalDate(r.endDate).getTime());
     
-    const minTime = Math.min(...startDates);
-    const maxTime = Math.max(...endDates);
+    const minTime = Math.min(...startDates, today.getTime());
+    const maxTime = Math.max(...endDates, today.getTime());
 
     // Add buffers for elegant aesthetics
     return {
@@ -203,6 +204,19 @@ export default function GanttChart({
     pixelsPerDay = 4; // ~120px per 30-day month cell
     cellWidth = 120;
   }
+
+  const todayDate = new Date();
+  const todayKey = formatLocalDate(todayDate);
+  const todayOffset = getDaysBetween(timelineStart, todayDate) * pixelsPerDay;
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const frame = window.requestAnimationFrame(() => {
+      canvas.scrollTo({ left: Math.max(0, todayOffset - Math.min(180, canvas.clientWidth * 0.3)), behavior: 'auto' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [todayOffset, zoomLevel]);
 
   // Sync scroll between sidebar and canvas row bodies
   const sidebarRowsRef = useRef<HTMLDivElement>(null);
@@ -238,11 +252,12 @@ export default function GanttChart({
         const dayNum = currentDate.getDate();
         const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
         const dayOfWeekLetter = getDayOfWeekLetter(currentDate, lang);
+        const isToday = formatLocalDate(currentDate) === todayKey;
         
         cells.push(
           <div 
             key={`h-day-${i}`} 
-            className={`timeline-header-cell day-zoom-cell ${isWeekend ? 'weekend' : ''}`}
+            className={`timeline-header-cell day-zoom-cell ${isWeekend ? 'weekend' : ''} ${isToday ? 'today' : ''}`}
             style={{ 
               width: `${cellWidth}px`
             }}
@@ -781,6 +796,10 @@ export default function GanttChart({
         >
           {/* Shaded weekend columns */}
           {renderWeekendBackgrounds()}
+
+          <div className="gantt-today-line" style={{ left: `${todayOffset}px` }}>
+            <span>{lang === 'uk' ? 'Сьогодні' : 'Today'} · {todayDate.getDate()}</span>
+          </div>
 
           {/* Overlay SVG for drawing dependencies */}
           <svg 

@@ -5,10 +5,10 @@ import {
   Sun, Moon, Copy, Trash2, Info, X, ChevronDown, ChevronRight,
   Menu, Eye, EyeOff, Table, Users, Cloud, CloudOff, LoaderCircle, Pencil,
   Archive, CalendarRange, MoreHorizontal, SlidersHorizontal, FolderOpen, LogOut, CircleUserRound,
-  Share2, Lock, UserPlus, Shield, Smartphone, Bell, Lightbulb
+  Share2, Lock, UserPlus, Shield, Smartphone, Bell, Lightbulb, Home, ListTodo, NotebookPen, Bot
 } from 'lucide-react';
 import './App.css';
-import type { Task, MarketingTemplate, ActiveTab, ZoomLevel, Language, TeamMember, Reminder, Idea } from './types';
+import type { Task, MarketingTemplate, ActiveTab, ZoomLevel, Language, TeamMember, Reminder, Idea, WorkspaceDocument, WorkspaceNote } from './types';
 import { DEFAULT_TEMPLATES, TEAM_MEMBERS } from './data/templatesData';
 import { getTranslation } from './utils/locales';
 import { normalizeTaskProgress, withAutomaticTaskProgress } from './utils/taskProgress';
@@ -25,6 +25,10 @@ import MobilePlansView from './components/MobilePlansView';
 import ReminderCenter, { type ReminderPlanOption, type ReminderTargetDraft } from './components/ReminderCenter';
 import ReminderAlert from './components/ReminderAlert';
 import IdeasDialog from './components/IdeasDialog';
+import SimpleHome from './components/SimpleHome';
+import AllTasksView, { type GlobalTaskItem } from './components/AllTasksView';
+import KnowledgeHub from './components/KnowledgeHub';
+import AiAssistant from './components/AiAssistant';
 import { playReminderSound, unlockReminderSound } from './lib/reminderSound';
 import {
   enablePushNotifications,
@@ -34,8 +38,11 @@ import {
 } from './lib/pushNotifications';
 import {
   ensureCloudUser,
+  deleteWorkspaceDocument,
   loadCloudState,
+  openWorkspaceDocument,
   saveCloudState,
+  uploadWorkspaceDocument,
   type CloudAppState,
   type CloudSyncStatus,
 } from './lib/cloudMemory';
@@ -83,7 +90,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const [lang, setLang] = useState<Language>(() => getLocalStorage<Language>('gantt_lang', 'uk'));
   
   // Layout views & search filters
-  const [activeTab, setActiveTab] = useState<ActiveTab>(() => window.innerWidth <= 900 ? 'plans' : 'gantt');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('home');
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('days');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterAssignee, setFilterAssignee] = useState<string>('all');
@@ -137,6 +144,13 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const [ideas, setIdeas] = useState<Idea[]>(() =>
     getLocalStorage<Idea[]>('gantt_ideas', [])
   );
+  const [notes, setNotes] = useState<WorkspaceNote[]>(() =>
+    getLocalStorage<WorkspaceNote[]>('gantt_notes', [])
+  );
+  const [documents, setDocuments] = useState<WorkspaceDocument[]>(() =>
+    getLocalStorage<WorkspaceDocument[]>('gantt_documents', [])
+  );
+  const [isDocumentUploading, setIsDocumentUploading] = useState(false);
   
   // Active Project Plan id
   const [activeTemplateId, setActiveTemplateId] = useState<string>(() => 
@@ -147,6 +161,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const [tasksTemplateId, setTasksTemplateId] = useState(activeTemplateId);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [pendingTodayTask, setPendingTodayTask] = useState<{ planId: string; taskId: string } | null>(null);
+  const [pendingAiSteps, setPendingAiSteps] = useState<{ planId: string; taskId: string } | null>(null);
   const [cloudStatus, setCloudStatus] = useState<CloudSyncStatus>('connecting');
   const cloudUserIdRef = useRef<string | null>(null);
   const cloudHydratedRef = useRef(false);
@@ -483,6 +498,14 @@ function App({ accountEmail, onSignOut }: AppProps) {
     localStorage.setItem('gantt_ideas', JSON.stringify(ideas));
   }, [ideas]);
 
+  useEffect(() => {
+    localStorage.setItem('gantt_notes', JSON.stringify(notes));
+  }, [notes]);
+
+  useEffect(() => {
+    localStorage.setItem('gantt_documents', JSON.stringify(documents));
+  }, [documents]);
+
   // Save Language changes
   useEffect(() => {
     localStorage.setItem('gantt_lang', JSON.stringify(lang));
@@ -523,6 +546,8 @@ function App({ accountEmail, onSignOut }: AppProps) {
             ),
             reminders: [],
             ideas: [],
+            notes: [],
+            documents: [],
           };
           await saveCloudState(userId, cloudState);
           if (cancelled) return;
@@ -542,12 +567,16 @@ function App({ accountEmail, onSignOut }: AppProps) {
           const restoredArchivedPlanIds = cloudState.archivedPlanIds ?? [];
           const restoredReminders = cloudState.reminders ?? [];
           const restoredIdeas = cloudState.ideas ?? [];
+          const restoredNotes = cloudState.notes ?? [];
+          const restoredDocuments = cloudState.documents ?? [];
           localStorage.setItem('gantt_hidden_default_templates', JSON.stringify(restoredHiddenDefaultTemplateIds));
           localStorage.setItem('gantt_team_members', JSON.stringify(restoredTeamMembers));
           localStorage.setItem('gantt_plan_name_overrides', JSON.stringify(restoredPlanNameOverrides));
           localStorage.setItem('gantt_archived_plan_ids', JSON.stringify(restoredArchivedPlanIds));
           localStorage.setItem('gantt_reminders', JSON.stringify(restoredReminders));
           localStorage.setItem('gantt_ideas', JSON.stringify(restoredIdeas));
+          localStorage.setItem('gantt_notes', JSON.stringify(restoredNotes));
+          localStorage.setItem('gantt_documents', JSON.stringify(restoredDocuments));
           localStorage.setItem('gantt_active_template_id', JSON.stringify(cloudState.activeTemplateId));
 
           const restoredTemplates = [
@@ -572,6 +601,8 @@ function App({ accountEmail, onSignOut }: AppProps) {
           setArchivedPlanIds(restoredArchivedPlanIds);
           setReminders(restoredReminders);
           setIdeas(restoredIdeas);
+          setNotes(restoredNotes);
+          setDocuments(restoredDocuments);
           setActiveTemplateId(restoredTemplateId);
           setTasks(normalizeTaskProgress(restoredTasks));
           setTasksTemplateId(restoredTemplateId);
@@ -677,6 +708,8 @@ function App({ accountEmail, onSignOut }: AppProps) {
         tasksByTemplate,
         reminders,
         ideas,
+        notes,
+        documents,
       };
 
       void saveCloudState(userId, nextState)
@@ -692,7 +725,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
         window.clearTimeout(cloudSaveTimerRef.current);
       }
     };
-  }, [activeTemplateId, archivedPlanIds, customTemplates, hiddenDefaultTemplateIds, ideas, lang, planNameOverrides, reminders, showOnboarding, tasks, tasksTemplateId, teamMembers, theme]);
+  }, [activeTemplateId, archivedPlanIds, customTemplates, documents, hiddenDefaultTemplateIds, ideas, lang, notes, planNameOverrides, reminders, showOnboarding, tasks, tasksTemplateId, teamMembers, theme]);
 
   useEffect(() => {
     if (!activeSharedPlan || !canEditActivePlan || tasksTemplateId !== activeTemplateId || !cloudHydratedRef.current || !localTasksDirtyRef.current) return;
@@ -887,6 +920,74 @@ function App({ accountEmail, onSignOut }: AppProps) {
     showToast(lang === 'uk' ? 'Ідею перетворено на план' : 'Idea converted to a plan');
   };
 
+  const handleCreateNote = (): WorkspaceNote => {
+    const now = new Date().toISOString();
+    const note: WorkspaceNote = {
+      id: createClientId('note'),
+      title: lang === 'uk' ? 'Нова сторінка' : 'New page',
+      content: '',
+      tags: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+    setNotes(previous => [note, ...previous]);
+    return note;
+  };
+
+  const handleSaveNote = (note: WorkspaceNote) => {
+    setNotes(previous => previous.map(item => item.id === note.id ? note : item));
+    showToast(lang === 'uk' ? 'Сторінку збережено' : 'Page saved');
+  };
+
+  const handleDeleteNote = (noteId: string) => {
+    setNotes(previous => previous.filter(note => note.id !== noteId));
+  };
+
+  const handleUploadDocument = async (file: File) => {
+    if (!currentUserId) return showToast(lang === 'uk' ? 'Спочатку увійдіть в акаунт' : 'Sign in first', 'error');
+    if (file.size > 20 * 1024 * 1024) return showToast(lang === 'uk' ? 'Файл має бути до 20 МБ' : 'File must be under 20 MB', 'error');
+    setIsDocumentUploading(true);
+    try {
+      const storagePath = await uploadWorkspaceDocument(currentUserId, file);
+      const document: WorkspaceDocument = {
+        id: createClientId('document'),
+        name: file.name,
+        storagePath,
+        mimeType: file.type,
+        size: file.size,
+        createdAt: new Date().toISOString(),
+      };
+      setDocuments(previous => [document, ...previous]);
+      showToast(lang === 'uk' ? 'Документ збережено' : 'Document saved');
+    } catch (error) {
+      console.error('Document upload failed', error);
+      showToast(lang === 'uk' ? 'Не вдалося завантажити документ' : 'Document upload failed', 'error');
+    } finally {
+      setIsDocumentUploading(false);
+    }
+  };
+
+  const handleOpenDocument = async (document: WorkspaceDocument) => {
+    try {
+      await openWorkspaceDocument(document.storagePath);
+    } catch (error) {
+      console.error('Document open failed', error);
+      showToast(lang === 'uk' ? 'Не вдалося відкрити документ' : 'Could not open document', 'error');
+    }
+  };
+
+  const handleDeleteDocument = async (document: WorkspaceDocument) => {
+    if (!confirm(lang === 'uk' ? `Видалити «${document.name}»?` : `Delete “${document.name}”?`)) return;
+    try {
+      await deleteWorkspaceDocument(document.storagePath);
+      setDocuments(previous => previous.filter(item => item.id !== document.id));
+      showToast(lang === 'uk' ? 'Документ видалено' : 'Document deleted');
+    } catch (error) {
+      console.error('Document delete failed', error);
+      showToast(lang === 'uk' ? 'Не вдалося видалити документ' : 'Could not delete document', 'error');
+    }
+  };
+
   const handleTemplateSelect = (id: string) => {
     setActiveTemplateId(id);
   };
@@ -904,6 +1005,23 @@ function App({ accountEmail, onSignOut }: AppProps) {
     }
     setPendingTodayTask({ planId, taskId });
     setActiveTemplateId(planId);
+  };
+
+  const handleOpenGlobalTask = (planId: string, taskId: string) => {
+    setActiveTab('grid');
+    if (planId === activeTemplateId && tasksTemplateId === activeTemplateId) {
+      setSelectedTaskId(taskId);
+      return;
+    }
+    setPendingTodayTask({ planId, taskId });
+    setActiveTemplateId(planId);
+  };
+
+  const handleCreateAiSteps = (planId: string, taskId: string) => {
+    setPendingAiSteps({ planId, taskId });
+    setPendingTodayTask({ planId, taskId });
+    setActiveTemplateId(planId);
+    setActiveTab('grid');
   };
 
   const handleArchivePlan = (templateId: string) => {
@@ -1275,6 +1393,38 @@ function App({ accountEmail, onSignOut }: AppProps) {
     });
   };
 
+  useEffect(() => {
+    if (!pendingAiSteps || pendingAiSteps.planId !== activeTemplateId || tasksTemplateId !== activeTemplateId) return;
+    const task = tasks.find(item => item.id === pendingAiSteps.taskId);
+    if (!task) {
+      setPendingAiSteps(null);
+      return;
+    }
+    const existingTitles = new Set(task.subtasks.map(subtask => subtask.title.toLocaleLowerCase()));
+    const suggestedTitles = lang === 'uk'
+      ? ['Уточнити бажаний результат', 'Зібрати потрібні матеріали', 'Виконати основну частину', 'Перевірити та завершити']
+      : ['Clarify the desired result', 'Gather the needed materials', 'Complete the main work', 'Review and finish'];
+    const additions = suggestedTitles.filter(title => !existingTitles.has(title.toLocaleLowerCase())).map((title, index) => ({
+      id: createClientId(`ai_step_${index + 1}`),
+      title,
+      completed: false,
+      status: 'todo' as const,
+      startDate: task.startDate,
+      endDate: task.endDate,
+      assignee: task.assignee || undefined,
+    }));
+    if (additions.length > 0) {
+      localTasksDirtyRef.current = true;
+      localTasksRevisionRef.current += 1;
+      setTasks(previous => previous.map(item => item.id === task.id
+        ? withAutomaticTaskProgress({ ...item, subtasks: [...item.subtasks, ...additions] })
+        : item
+      ));
+    }
+    setPendingAiSteps(null);
+    showToast(lang === 'uk' ? 'AI додав прості кроки до завдання' : 'AI added simple steps to the task');
+  }, [activeTemplateId, lang, pendingAiSteps, tasks, tasksTemplateId]);
+
   // Delete Task
   const handleDeleteTask = (taskId: string) => {
     if (!canEditActivePlan) return showToast(lang === 'uk' ? 'У вас доступ лише для перегляду' : 'You have view-only access', 'error');
@@ -1549,6 +1699,20 @@ function App({ accountEmail, onSignOut }: AppProps) {
   // Filter tasks by query, assignee, and status
   const activeTasks = tasks.filter(task => !task.archived);
   const archivedTasks = tasks.filter(task => task.archived);
+  const globalTaskItems: GlobalTaskItem[] = allTemplates.flatMap(template => {
+    const templateTasks = template.id === activeTemplateId
+      ? tasks
+      : sharedPlanViews.find(view => view.template.id === template.id)?.plan.tasks
+        ?? getLocalStorage<Task[] | null>(`gantt_tasks_${template.id}`, null)
+        ?? template.tasks;
+    const planColor = templateTasks.find(task => task.color)?.color ?? '#6366f1';
+    return normalizeTaskProgress(templateTasks)
+      .filter(task => !task.archived)
+      .map(task => ({ planId: template.id, planTitle: getPlanTitle(template), planColor, task }));
+  });
+  const unfinishedGlobalTasks = globalTaskItems
+    .filter(item => item.task.status !== 'done')
+    .sort((a, b) => a.task.endDate.localeCompare(b.task.endDate));
   const filteredTasks = activeTasks.filter(t => {
     const normalizedQuery = searchQuery.toLowerCase();
     const matchesSearch = t.title.toLowerCase().includes(normalizedQuery) ||
@@ -1644,6 +1808,22 @@ function App({ accountEmail, onSignOut }: AppProps) {
       items,
     }];
   });
+  const unfinishedPlanGroups: TodayPlanGroup[] = allTemplates.flatMap(template => {
+    const items = unfinishedGlobalTasks
+      .filter(item => item.planId === template.id)
+      .map(({ task }) => ({
+        id: task.id,
+        parentTaskId: task.id,
+        title: task.title,
+        assignee: task.assignee,
+        status: task.status,
+        isSubtask: false,
+        startDate: task.startDate,
+        endDate: task.endDate,
+      }));
+    if (items.length === 0) return [];
+    return [{ id: template.id, title: getPlanTitle(template), color: items.length ? (globalTaskItems.find(item => item.planId === template.id)?.planColor ?? '#6366f1') : '#6366f1', items }];
+  });
   const activeTemplateTitle = getPlanTitle(activeTemplate);
   const activeTemplateDescription = lang === 'uk' ? activeTemplate.descriptionUa : activeTemplate.descriptionEn;
   const reminderPlans: ReminderPlanOption[] = allTemplates.map(template => {
@@ -1680,6 +1860,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
   ].filter(Boolean).length;
 
   const selectedTask = tasks.find(t => t.id === selectedTaskId) || null;
+  const isPlanTaskView = activeTab === 'gantt' || activeTab === 'grid' || activeTab === 'kanban' || activeTab === 'workload';
 
   useEffect(() => {
     if (!currentUserId || pushStatus !== 'enabled' || !cloudHydratedRef.current) return;
@@ -2006,11 +2187,9 @@ function App({ accountEmail, onSignOut }: AppProps) {
           </button>
           <button className="mobile-current-plan" onClick={() => setIsMobilePlanSheetOpen(true)}>
             <small>
-              {activeTab === 'plans'
-                ? (lang === 'uk' ? 'Робочий простір' : 'Workspace')
-                : (lang === 'uk' ? 'Поточний план' : 'Current plan')}
+              {isPlanTaskView ? (lang === 'uk' ? 'Поточний план' : 'Current plan') : (lang === 'uk' ? 'Робочий простір' : 'Workspace')}
             </small>
-            <strong>{activeTab === 'plans' ? (lang === 'uk' ? 'Мої плани' : 'My plans') : activeTemplateTitle}</strong>
+            <strong>{isPlanTaskView ? activeTemplateTitle : activeTab === 'home' ? (lang === 'uk' ? 'Сьогодні' : 'Today') : activeTab === 'all_tasks' ? (lang === 'uk' ? 'Усі завдання' : 'All tasks') : activeTab === 'notes' ? (lang === 'uk' ? 'Нотатки' : 'Notes') : activeTab === 'assistant' ? 'AI' : (lang === 'uk' ? 'Мої плани' : 'My plans')}</strong>
           </button>
           <span className={`mobile-cloud-status mobile-cloud-${cloudStatus}`} title={cloudStatus}>
             {cloudStatus === 'synced' && <Cloud size={16} />}
@@ -2026,7 +2205,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
           </button>
         </header>
 
-        {activeTab !== 'plans' && (
+        {isPlanTaskView && (
           <div className="mobile-search-panel">
             <div className="mobile-search-row">
               <label>
@@ -2094,20 +2273,28 @@ function App({ accountEmail, onSignOut }: AppProps) {
             </button>
 
             <div className="view-tabs">
-              {(['plans', 'gantt', 'grid', 'kanban', 'workload'] as ActiveTab[]).map(tab => (
+              {(['home', 'all_tasks', 'plans', 'gantt', 'grid', 'kanban', 'workload', 'notes', 'assistant'] as ActiveTab[]).map(tab => (
                 <button
                   key={tab}
                   className={`view-tab ${activeTab === tab ? 'active' : ''}`}
                   onClick={() => setActiveTab(tab)}
                 >
+                  {tab === 'home' && <Home size={14} />}
+                  {tab === 'all_tasks' && <ListTodo size={14} />}
                   {tab === 'plans' && <CalendarRange size={14} />}
                   {tab === 'gantt' && <Calendar size={14} />}
                   {tab === 'grid' && <Table size={14} />}
                   {tab === 'kanban' && <Compass size={14} />}
                   {tab === 'workload' && <Users size={14} />}
+                  {tab === 'notes' && <NotebookPen size={14} />}
+                  {tab === 'assistant' && <Bot size={14} />}
                   <span className="hide-mobile-text">
-                    {tab === 'plans'
+                    {tab === 'home' ? (lang === 'uk' ? 'Головна' : 'Home')
+                      : tab === 'all_tasks' ? (lang === 'uk' ? 'Усі завдання' : 'All tasks')
+                      : tab === 'plans'
                       ? (lang === 'uk' ? 'Плани' : 'Plans')
+                      : tab === 'notes' ? (lang === 'uk' ? 'Нотатки' : 'Notes')
+                      : tab === 'assistant' ? 'AI'
                       : getTranslation(lang, `view${tab.charAt(0).toUpperCase() + tab.slice(1)}` as any)}
                   </span>
                 </button>
@@ -2144,7 +2331,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
           </div>
 
           <div className="header-right">
-            {activeTab !== 'plans' && (
+            {isPlanTaskView && (
               <div className="search-container">
                 <Search className="search-icon" size={16} />
                 <input
@@ -2157,7 +2344,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
               </div>
             )}
 
-            {activeTab !== 'plans' && <div className="controls-group">
+            {isPlanTaskView && <div className="controls-group">
               <select
                 className="header-filter-select"
                 value={filterAssignee}
@@ -2360,7 +2547,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
           </div>
         </header>
 
-        {!isMobile && activeTab !== 'gantt' && activeTab !== 'plans' && (
+        {!isMobile && (activeTab === 'grid' || activeTab === 'kanban' || activeTab === 'workload') && (
           <section className="project-summary">
             <div className="project-title-block">
               <p className="eyebrow">{lang === 'uk' ? 'Поточний план' : 'Current plan'}</p>
@@ -2389,7 +2576,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
           </section>
         )}
 
-        {!isMobile && activeTab !== 'plans' && activeFiltersCount > 0 && (
+        {!isMobile && isPlanTaskView && activeFiltersCount > 0 && (
           <div className="filter-note">
             <span>
               {lang === 'uk'
@@ -2419,6 +2606,40 @@ function App({ accountEmail, onSignOut }: AppProps) {
           onTouchEnd={handlePullEnd}
           onTouchCancel={resetPullGesture}
         >
+          {activeTab === 'home' && (
+            <SimpleHome
+              lang={lang}
+              openTasks={unfinishedGlobalTasks.map(item => ({ id: item.task.id, planId: item.planId, planTitle: item.planTitle, title: item.task.title, endDate: item.task.endDate, color: item.planColor }))}
+              todayCount={todayPlanGroups.reduce((sum, group) => sum + group.items.filter(item => item.status !== 'done').length, 0)}
+              notesCount={notes.length}
+              documentsCount={documents.length}
+              onOpenAllTasks={() => setActiveTab('all_tasks')}
+              onOpenTask={handleOpenGlobalTask}
+              onOpenNotes={() => setActiveTab('notes')}
+              onOpenAssistant={() => setActiveTab('assistant')}
+            />
+          )}
+
+          {activeTab === 'all_tasks' && <AllTasksView items={globalTaskItems} lang={lang} onOpen={handleOpenGlobalTask} />}
+
+          {activeTab === 'notes' && (
+            <KnowledgeHub
+              lang={lang}
+              notes={notes}
+              documents={documents}
+              plans={allTemplates.map(template => ({ id: template.id, title: getPlanTitle(template) }))}
+              isUploading={isDocumentUploading}
+              onCreateNote={handleCreateNote}
+              onSaveNote={handleSaveNote}
+              onDeleteNote={handleDeleteNote}
+              onUpload={file => { void handleUploadDocument(file); }}
+              onOpenDocument={document => { void handleOpenDocument(document); }}
+              onDeleteDocument={document => { void handleDeleteDocument(document); }}
+            />
+          )}
+
+          {activeTab === 'assistant' && <AiAssistant lang={lang} tasks={globalTaskItems} notes={notes} onOpenTask={handleOpenGlobalTask} onCreateSteps={handleCreateAiSteps} />}
+
           {activeTab === 'plans' && (
             isMobile ? (
               <MobilePlansView
@@ -2522,11 +2743,11 @@ function App({ accountEmail, onSignOut }: AppProps) {
 
         <nav className="mobile-bottom-nav" aria-label={lang === 'uk' ? 'Основна навігація' : 'Main navigation'}>
           {([
+            { id: 'home' as ActiveTab, icon: <Home size={20} />, uk: 'Головна', en: 'Home' },
+            { id: 'all_tasks' as ActiveTab, icon: <ListTodo size={20} />, uk: 'Усі справи', en: 'All tasks' },
             { id: 'plans' as ActiveTab, icon: <CalendarRange size={20} />, uk: 'Плани', en: 'Plans' },
-            { id: 'grid' as ActiveTab, icon: <Table size={20} />, uk: 'Завдання', en: 'Tasks' },
-            { id: 'kanban' as ActiveTab, icon: <Compass size={20} />, uk: 'Дошка', en: 'Board' },
-            { id: 'gantt' as ActiveTab, icon: <Calendar size={20} />, uk: 'Графік', en: 'Timeline' },
-            { id: 'workload' as ActiveTab, icon: <Users size={20} />, uk: 'Команда', en: 'Team' },
+            { id: 'notes' as ActiveTab, icon: <NotebookPen size={20} />, uk: 'Нотатки', en: 'Notes' },
+            { id: 'assistant' as ActiveTab, icon: <Bot size={20} />, uk: 'AI', en: 'AI' },
           ]).map(item => (
             <button
               className={activeTab === item.id ? 'active' : ''}
@@ -2603,6 +2824,10 @@ function App({ accountEmail, onSignOut }: AppProps) {
               </span>
             </div>
             <div className="mobile-action-grid">
+              <button onClick={() => { setIsMobileMenuOpen(false); setActiveTab('grid'); }}><Table size={19} /><span>{lang === 'uk' ? 'Завдання плану' : 'Plan tasks'}</span></button>
+              <button onClick={() => { setIsMobileMenuOpen(false); setActiveTab('kanban'); }}><Compass size={19} /><span>{lang === 'uk' ? 'Дошка' : 'Board'}</span></button>
+              <button onClick={() => { setIsMobileMenuOpen(false); setActiveTab('gantt'); }}><Calendar size={19} /><span>Gantt</span></button>
+              <button onClick={() => { setIsMobileMenuOpen(false); setActiveTab('workload'); }}><Users size={19} /><span>{lang === 'uk' ? 'Навантаження' : 'Workload'}</span></button>
               <button onClick={() => { setIsMobileMenuOpen(false); setIsTeamManagerOpen(true); }}><Users size={19} /><span>{lang === 'uk' ? 'Команда' : 'Team'}</span></button>
               <button onClick={() => { setIsMobileMenuOpen(false); openReminderCenter({ targetType: 'plan', planId: activeTemplateId }); }}><Bell size={19} /><span>{lang === 'uk' ? 'Нагадування' : 'Reminders'}</span></button>
               <button onClick={() => { setIsMobileMenuOpen(false); setIsIdeasOpen(true); }}><Lightbulb size={19} /><span>{lang === 'uk' ? 'Ідеї' : 'Ideas'}</span></button>
@@ -2626,6 +2851,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
       {!selectedTask && (
         <TodayPanel
           groups={todayPlanGroups}
+          unfinishedGroups={unfinishedPlanGroups}
           lang={lang}
           referenceDate={today}
           onOpenPlan={handleOpenTodayPlan}

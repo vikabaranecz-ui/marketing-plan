@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Idea, Language, MarketingTemplate, Reminder, Task, TeamMember } from '../types';
+import type { Idea, Language, MarketingTemplate, Reminder, Task, TeamMember, WorkspaceDocument, WorkspaceNote } from '../types';
 import type { Database, Json } from './database.types';
 
 const supabaseUrl =
@@ -31,6 +31,8 @@ export interface CloudAppState {
   tasksByTemplate: Record<string, Task[]>;
   reminders?: Reminder[];
   ideas?: Idea[];
+  notes?: WorkspaceNote[];
+  documents?: WorkspaceDocument[];
 }
 
 export const isCloudAppState = (value: unknown): value is CloudAppState => {
@@ -64,7 +66,9 @@ export const isCloudAppState = (value: unknown): value is CloudAppState => {
     !!state.tasksByTemplate &&
     typeof state.tasksByTemplate === 'object' &&
     (state.reminders === undefined || Array.isArray(state.reminders)) &&
-    (state.ideas === undefined || Array.isArray(state.ideas))
+    (state.ideas === undefined || Array.isArray(state.ideas)) &&
+    (state.notes === undefined || Array.isArray(state.notes)) &&
+    (state.documents === undefined || Array.isArray(state.documents))
   );
 };
 
@@ -151,5 +155,45 @@ export const saveCloudState = async (
     { onConflict: 'user_id' },
   );
 
+  if (error) throw error;
+};
+
+const DOCUMENT_BUCKET = 'workspace-documents';
+
+export const uploadWorkspaceDocument = async (userId: string, file: File): Promise<string> => {
+  const extension = file.name.includes('.') ? `.${file.name.split('.').pop()!.toLowerCase()}` : '';
+  const safeBaseName = file.name
+    .replace(/\.[^.]+$/, '')
+    .normalize('NFKD')
+    .replace(/[^a-zA-Z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60) || 'document';
+  const path = `${userId}/${Date.now()}-${crypto.randomUUID()}-${safeBaseName}${extension}`;
+  const { error } = await supabase.storage.from(DOCUMENT_BUCKET).upload(path, file, {
+    contentType: file.type || 'application/octet-stream',
+    upsert: false,
+  });
+  if (error) throw error;
+  return path;
+};
+
+export const openWorkspaceDocument = async (path: string): Promise<void> => {
+  const previewWindow = window.open('about:blank', '_blank');
+  if (previewWindow) {
+    previewWindow.opener = null;
+    previewWindow.document.title = 'Loading document…';
+    previewWindow.document.body.textContent = 'Loading document…';
+  }
+  const { data, error } = await supabase.storage.from(DOCUMENT_BUCKET).createSignedUrl(path, 60 * 10);
+  if (error) {
+    previewWindow?.close();
+    throw error;
+  }
+  if (previewWindow) previewWindow.location.href = data.signedUrl;
+  else window.location.href = data.signedUrl;
+};
+
+export const deleteWorkspaceDocument = async (path: string): Promise<void> => {
+  const { error } = await supabase.storage.from(DOCUMENT_BUCKET).remove([path]);
   if (error) throw error;
 };
