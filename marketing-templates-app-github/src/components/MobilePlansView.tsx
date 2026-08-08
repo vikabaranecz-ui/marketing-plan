@@ -19,8 +19,8 @@ export default function MobilePlansView({ plans, activePlanId, lang, onAdd, onAr
       <div className="mobile-screen-intro">
         <div>
           <span>{lang === 'uk' ? 'Робочий простір' : 'Workspace'}</span>
-          <h1>{lang === 'uk' ? 'Мої плани' : 'My plans'}</h1>
-          <p>{lang === 'uk' ? `${plans.length} активних планів` : `${plans.length} active plans`}</p>
+          <h1>{lang === 'uk' ? 'Плани й завдання' : 'Plans & tasks'}</h1>
+          <p>{lang === 'uk' ? `${plans.length} активних планів · відкрийте план, щоб побачити його завдання` : `${plans.length} active plans · open a plan to see its tasks`}</p>
         </div>
         <button className="mobile-primary-action" onClick={onAdd}>
           <Plus size={18} />

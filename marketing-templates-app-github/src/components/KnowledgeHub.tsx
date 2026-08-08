@@ -16,9 +16,10 @@ interface KnowledgeHubProps {
   onUpload: (file: File) => void;
   onOpenDocument: (document: WorkspaceDocument) => void;
   onDeleteDocument: (document: WorkspaceDocument) => void;
+  onLinkDocument: (documentId: string, planId?: string) => void;
 }
 
-export default function KnowledgeHub({ lang, notes, documents, plans, isUploading, onCreateNote, onSaveNote, onDeleteNote, onUpload, onOpenDocument, onDeleteDocument }: KnowledgeHubProps) {
+export default function KnowledgeHub({ lang, notes, documents, plans, isUploading, onCreateNote, onSaveNote, onDeleteNote, onUpload, onOpenDocument, onDeleteDocument, onLinkDocument }: KnowledgeHubProps) {
   const [mode, setMode] = useState<'notes' | 'documents'>('notes');
   const [query, setQuery] = useState('');
   const [selectedNoteId, setSelectedNoteId] = useState(notes[0]?.id ?? '');
@@ -58,7 +59,7 @@ export default function KnowledgeHub({ lang, notes, documents, plans, isUploadin
             <input ref={cameraRef} hidden type="file" accept="image/*" capture="environment" onChange={event => { handleFile(event.target.files?.[0]); event.target.value = ''; }} />
             <input ref={uploadRef} hidden type="file" accept="application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif" onChange={event => { handleFile(event.target.files?.[0]); event.target.value = ''; }} />
           </div>
-          <div className="document-grid">{filteredDocuments.map(document => <article key={document.id}><span className={`document-type ${document.mimeType === 'application/pdf' ? 'pdf' : 'image'}`}>{document.mimeType === 'application/pdf' ? <FileText /> : <Camera />}</span><div><strong>{document.name}</strong><small>{(document.size / 1024 / 1024).toFixed(1)} MB · {new Date(document.createdAt).toLocaleDateString(lang === 'uk' ? 'uk-UA' : 'en-US')}</small></div><button onClick={() => onOpenDocument(document)} aria-label={lang === 'uk' ? 'Відкрити' : 'Open'}><ExternalLink size={16} /></button><button className="danger" onClick={() => onDeleteDocument(document)} aria-label={lang === 'uk' ? 'Видалити' : 'Delete'}><Trash2 size={16} /></button></article>)}</div>
+          <div className="document-grid">{filteredDocuments.map(document => <article key={document.id}><span className={`document-type ${document.mimeType === 'application/pdf' ? 'pdf' : 'image'}`}>{document.mimeType === 'application/pdf' ? <FileText /> : <Camera />}</span><div><strong>{document.name}</strong><small>{(document.size / 1024 / 1024).toFixed(1)} MB · {new Date(document.createdAt).toLocaleDateString(lang === 'uk' ? 'uk-UA' : 'en-US')}</small><select value={document.planId ?? ''} onChange={event => onLinkDocument(document.id, event.target.value || undefined)} aria-label={lang === 'uk' ? 'Прив’язати документ до плану' : 'Link document to plan'}><option value="">{lang === 'uk' ? 'Без плану' : 'No plan'}</option>{plans.map(plan => <option value={plan.id} key={plan.id}>{plan.title}</option>)}</select></div><button onClick={() => onOpenDocument(document)} aria-label={lang === 'uk' ? 'Відкрити' : 'Open'}><ExternalLink size={16} /></button><button className="danger" onClick={() => onDeleteDocument(document)} aria-label={lang === 'uk' ? 'Видалити' : 'Delete'}><Trash2 size={16} /></button></article>)}</div>
           {filteredDocuments.length === 0 && <div className="simple-empty"><FileText /><strong>{lang === 'uk' ? 'Документів ще немає' : 'No documents yet'}</strong></div>}
         </div>
       )}

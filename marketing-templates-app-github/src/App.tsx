@@ -955,6 +955,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
         storagePath,
         mimeType: file.type,
         size: file.size,
+        planId: activeTemplateId || undefined,
         createdAt: new Date().toISOString(),
       };
       setDocuments(previous => [document, ...previous]);
@@ -986,6 +987,11 @@ function App({ accountEmail, onSignOut }: AppProps) {
       console.error('Document delete failed', error);
       showToast(lang === 'uk' ? 'Не вдалося видалити документ' : 'Could not delete document', 'error');
     }
+  };
+
+  const handleLinkDocument = (documentId: string, planId?: string) => {
+    setDocuments(previous => previous.map(document => document.id === documentId ? { ...document, planId } : document));
+    showToast(lang === 'uk' ? 'Прив’язку документа збережено' : 'Document link saved');
   };
 
   const handleTemplateSelect = (id: string) => {
@@ -1948,7 +1954,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
   return (
     <div className="app-container">
       {/* Sidebar Navigation */}
-      <aside className={`sidebar ${showMainSidebar ? '' : 'collapsed'}`}>
+      <aside className={`sidebar legacy-plan-sidebar ${showMainSidebar ? '' : 'collapsed'}`}>
         <div className="sidebar-brand">
           <img className="brand-icon brand-icon-image" src="/icons/marketing-plan-192.png" alt="" />
           <div className="brand-info">
@@ -2189,7 +2195,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
             <small>
               {isPlanTaskView ? (lang === 'uk' ? 'Поточний план' : 'Current plan') : (lang === 'uk' ? 'Робочий простір' : 'Workspace')}
             </small>
-            <strong>{isPlanTaskView ? activeTemplateTitle : activeTab === 'home' ? (lang === 'uk' ? 'Сьогодні' : 'Today') : activeTab === 'all_tasks' ? (lang === 'uk' ? 'Усі завдання' : 'All tasks') : activeTab === 'notes' ? (lang === 'uk' ? 'Нотатки' : 'Notes') : activeTab === 'assistant' ? 'AI' : (lang === 'uk' ? 'Мої плани' : 'My plans')}</strong>
+            <strong>{isPlanTaskView ? activeTemplateTitle : activeTab === 'home' ? (lang === 'uk' ? 'Сьогодні' : 'Today') : activeTab === 'all_tasks' ? (lang === 'uk' ? 'Усі завдання' : 'All tasks') : activeTab === 'notes' ? (lang === 'uk' ? 'Нотатки' : 'Notes') : activeTab === 'assistant' ? 'AI' : (lang === 'uk' ? 'Плани й завдання' : 'Plans & tasks')}</strong>
           </button>
           <span className={`mobile-cloud-status mobile-cloud-${cloudStatus}`} title={cloudStatus}>
             {cloudStatus === 'synced' && <Cloud size={16} />}
@@ -2265,14 +2271,14 @@ function App({ accountEmail, onSignOut }: AppProps) {
         <header className="header">
           <div className="header-left">
             <button
-              className="btn-icon"
+              className="btn-icon header-project-toggle"
               onClick={() => setShowMainSidebar(!showMainSidebar)}
               title={lang === 'uk' ? 'Показати/Сховати панель проектів' : 'Toggle Projects Sidebar'}
             >
               <Menu size={16} />
             </button>
 
-            <div className="view-tabs">
+            <div className="view-tabs desktop-view-menu">
               {(['home', 'all_tasks', 'plans', 'gantt', 'grid', 'kanban', 'workload', 'notes', 'assistant'] as ActiveTab[]).map(tab => (
                 <button
                   key={tab}
@@ -2635,13 +2641,14 @@ function App({ accountEmail, onSignOut }: AppProps) {
               onUpload={file => { void handleUploadDocument(file); }}
               onOpenDocument={document => { void handleOpenDocument(document); }}
               onDeleteDocument={document => { void handleDeleteDocument(document); }}
+              onLinkDocument={handleLinkDocument}
             />
           )}
 
           {activeTab === 'assistant' && <AiAssistant lang={lang} tasks={globalTaskItems} notes={notes} onOpenTask={handleOpenGlobalTask} onCreateSteps={handleCreateAiSteps} />}
 
           {activeTab === 'plans' && (
-            isMobile ? (
+            <div className="plans-workspace-hub">
               <MobilePlansView
                 plans={planCalendarItems}
                 activePlanId={activeTemplateId}
@@ -2655,7 +2662,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
                 onRename={handleRenamePlan}
                 onReminder={planId => openReminderCenter({ targetType: 'plan', planId })}
               />
-            ) : (
+              {!isMobile && (
               <PlansCalendarView
                 plans={planCalendarItems}
                 zoomLevel={zoomLevel}
@@ -2666,7 +2673,8 @@ function App({ accountEmail, onSignOut }: AppProps) {
                 }}
                 onArchive={handleArchivePlan}
               />
-            )
+              )}
+            </div>
           )}
 
           {activeTab === 'gantt' && (
@@ -2745,7 +2753,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
           {([
             { id: 'home' as ActiveTab, icon: <Home size={20} />, uk: 'Головна', en: 'Home' },
             { id: 'all_tasks' as ActiveTab, icon: <ListTodo size={20} />, uk: 'Усі справи', en: 'All tasks' },
-            { id: 'plans' as ActiveTab, icon: <CalendarRange size={20} />, uk: 'Плани', en: 'Plans' },
+            { id: 'plans' as ActiveTab, icon: <CalendarRange size={20} />, uk: 'Плани + задачі', en: 'Plans + tasks' },
             { id: 'notes' as ActiveTab, icon: <NotebookPen size={20} />, uk: 'Нотатки', en: 'Notes' },
             { id: 'assistant' as ActiveTab, icon: <Bot size={20} />, uk: 'AI', en: 'AI' },
           ]).map(item => (
@@ -2760,6 +2768,43 @@ function App({ accountEmail, onSignOut }: AppProps) {
           ))}
         </nav>
       </main>
+
+      <aside className="workspace-right-nav" aria-label={lang === 'uk' ? 'Навігація робочого простору' : 'Workspace navigation'}>
+        <div className="workspace-right-brand">
+          <img src="/icons/marketing-plan-192.png" alt="" />
+          <span><strong>Marketing Workspace</strong><small>{lang === 'uk' ? 'Усе пов’язано' : 'Everything connected'}</small></span>
+        </div>
+
+        <nav className="workspace-right-groups">
+          <section>
+            <p>{lang === 'uk' ? 'Початок' : 'Start'}</p>
+            <button className={activeTab === 'home' ? 'active' : ''} onClick={() => setActiveTab('home')}><Home size={18} /><span>{lang === 'uk' ? 'Головна' : 'Home'}</span></button>
+          </section>
+          <section>
+            <p>{lang === 'uk' ? 'Плани й завдання' : 'Plans & tasks'}</p>
+            <button className={activeTab === 'plans' ? 'active' : ''} onClick={() => setActiveTab('plans')}><CalendarRange size={18} /><span>{lang === 'uk' ? 'Усі плани' : 'All plans'}</span></button>
+            <button className={activeTab === 'all_tasks' ? 'active' : ''} onClick={() => setActiveTab('all_tasks')}><ListTodo size={18} /><span>{lang === 'uk' ? 'Усі завдання' : 'All tasks'}</span></button>
+            <button className={activeTab === 'grid' ? 'active' : ''} onClick={() => setActiveTab('grid')}><Table size={18} /><span>{lang === 'uk' ? 'Список плану' : 'Plan list'}</span></button>
+            <button className={activeTab === 'kanban' ? 'active' : ''} onClick={() => setActiveTab('kanban')}><Compass size={18} /><span>{lang === 'uk' ? 'Дошка' : 'Board'}</span></button>
+            <button className={activeTab === 'gantt' ? 'active' : ''} onClick={() => setActiveTab('gantt')}><Calendar size={18} /><span>Gantt</span></button>
+            <button className={activeTab === 'workload' ? 'active' : ''} onClick={() => setActiveTab('workload')}><Users size={18} /><span>{lang === 'uk' ? 'Навантаження' : 'Workload'}</span></button>
+          </section>
+          <section>
+            <p>{lang === 'uk' ? 'Матеріали й допомога' : 'Knowledge & help'}</p>
+            <button className={activeTab === 'notes' ? 'active' : ''} onClick={() => setActiveTab('notes')}><NotebookPen size={18} /><span>{lang === 'uk' ? 'Нотатки та файли' : 'Notes & files'}</span></button>
+            <button className={activeTab === 'assistant' ? 'active' : ''} onClick={() => setActiveTab('assistant')}><Bot size={18} /><span>{lang === 'uk' ? 'AI-помічник' : 'AI assistant'}</span></button>
+          </section>
+        </nav>
+
+        <div className="workspace-right-current">
+          <small>{lang === 'uk' ? 'Поточний план' : 'Current plan'}</small>
+          <strong title={activeTemplateTitle}>{activeTemplateTitle}</strong>
+          <div>
+            <button onClick={() => { setActiveTab('grid'); handleAddTask('todo'); }}><Plus size={15} />{lang === 'uk' ? 'Завдання' : 'Task'}</button>
+            <button onClick={() => openReminderCenter({ targetType: 'plan', planId: activeTemplateId })}><Bell size={15} />{lang === 'uk' ? 'Нагадати' : 'Remind'}</button>
+          </div>
+        </div>
+      </aside>
 
       {isMobilePlanSheetOpen && (
         <>
