@@ -104,7 +104,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
   // Global responsive sidebar collapse states
   const [showMainSidebar, setShowMainSidebar] = useState(true);
   const [showGanttSidebar, setShowGanttSidebar] = useState(true);
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 900);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 1024);
   const [isMobilePlanSheetOpen, setIsMobilePlanSheetOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
@@ -1925,7 +1925,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
   // Handle Responsive Viewport Logic
   useEffect(() => {
     const handleResize = () => {
-      const mobile = window.innerWidth <= 900;
+      const mobile = window.innerWidth <= 1024;
       setIsMobile(mobile);
       if (!mobile) {
         setIsMobilePlanSheetOpen(false);
