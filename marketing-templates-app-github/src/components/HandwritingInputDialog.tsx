@@ -7,6 +7,7 @@ interface HandwritingInputDialogProps {
   value: string;
   title: string;
   lang: Language;
+  recognitionLang?: Language;
   multiline?: boolean;
   onApply: (value: string) => void;
   onClose: () => void;
@@ -16,6 +17,7 @@ export default function HandwritingInputDialog({
   value,
   title,
   lang,
+  recognitionLang,
   multiline = false,
   onApply,
   onClose,
@@ -67,7 +69,7 @@ export default function HandwritingInputDialog({
         <div className="handwriting-pad">
           <textarea
             ref={inputRef}
-            lang={lang === 'uk' ? 'uk' : 'en'}
+            lang={(recognitionLang ?? lang) === 'uk' ? 'uk' : 'en'}
             value={draft}
             rows={multiline ? 8 : 5}
             enterKeyHint={multiline ? 'enter' : 'done'}

@@ -106,6 +106,9 @@ export interface WorkspaceDocument {
   mimeType: string;
   size: number;
   planId?: string;
+  taskId?: string;
+  notebookId?: string;
+  noteId?: string;
   note?: string;
   createdAt: string;
 }

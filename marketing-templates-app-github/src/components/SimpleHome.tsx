@@ -54,7 +54,7 @@ export default function SimpleHome({
         <button onClick={onOpenAllTasks}><span className="home-action-icon blue"><ListTodo /></span><strong>{lang === 'uk' ? 'Усі завдання' : 'All tasks'}</strong><small>{openTasks.length} {lang === 'uk' ? 'незавершених' : 'unfinished'}</small></button>
         <button onClick={onOpenAllTasks}><span className="home-action-icon green"><CheckCircle2 /></span><strong>{lang === 'uk' ? 'На сьогодні' : 'For today'}</strong><small>{todayCount} {lang === 'uk' ? 'актуальних' : 'active'}</small></button>
         <button onClick={onOpenNotes}><span className="home-action-icon violet"><NotebookPen /></span><strong>{lang === 'uk' ? 'Нотатки' : 'Notes'}</strong><small>{notesCount} {lang === 'uk' ? 'сторінок' : 'pages'}</small></button>
-        <button onClick={onOpenNotes}><span className="home-action-icon orange"><FileText /></span><strong>{lang === 'uk' ? 'Документи' : 'Documents'}</strong><small>{documentsCount} PDF / scan</small></button>
+        <button onClick={onOpenNotes}><span className="home-action-icon orange"><FileText /></span><strong>{lang === 'uk' ? 'Файли в нотатках' : 'Note attachments'}</strong><small>{documentsCount} PDF / scan</small></button>
         <button className="home-ai-action" onClick={onOpenAssistant}><span className="home-action-icon pink"><Bot /></span><strong>{lang === 'uk' ? 'Запитати AI' : 'Ask AI'}</strong><small>{lang === 'uk' ? 'Знайти або розкласти завдання на кроки' : 'Find or break a task into steps'}</small></button>
       </div>
 

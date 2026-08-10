@@ -1007,7 +1007,10 @@ function App({ accountEmail, onSignOut }: AppProps) {
     showToast(lang === 'uk' ? 'Щоденник видалено, нотатки залишились' : 'Journal deleted, notes kept');
   };
 
-  const handleUploadDocument = async (file: File) => {
+  const handleUploadDocument = async (
+    file: File,
+    link?: Pick<WorkspaceDocument, 'noteId' | 'notebookId' | 'planId' | 'taskId'>,
+  ) => {
     if (!currentUserId) return showToast(lang === 'uk' ? 'Спочатку увійдіть в акаунт' : 'Sign in first', 'error');
     if (file.size > 20 * 1024 * 1024) return showToast(lang === 'uk' ? 'Файл має бути до 20 МБ' : 'File must be under 20 MB', 'error');
     setIsDocumentUploading(true);
@@ -1019,7 +1022,10 @@ function App({ accountEmail, onSignOut }: AppProps) {
         storagePath,
         mimeType: file.type,
         size: file.size,
-        planId: activeTemplateId || undefined,
+        planId: link?.planId,
+        taskId: link?.taskId,
+        notebookId: link?.notebookId,
+        noteId: link?.noteId,
         createdAt: new Date().toISOString(),
       };
       setDocuments(previous => [document, ...previous]);
@@ -1053,8 +1059,11 @@ function App({ accountEmail, onSignOut }: AppProps) {
     }
   };
 
-  const handleLinkDocument = (documentId: string, planId?: string) => {
-    setDocuments(previous => previous.map(document => document.id === documentId ? { ...document, planId } : document));
+  const handleLinkDocument = (
+    documentId: string,
+    link: Partial<Pick<WorkspaceDocument, 'noteId' | 'notebookId' | 'planId' | 'taskId'>>,
+  ) => {
+    setDocuments(previous => previous.map(document => document.id === documentId ? { ...document, ...link } : document));
     showToast(lang === 'uk' ? 'Прив’язку документа збережено' : 'Document link saved');
   };
 
@@ -2746,7 +2755,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
               onCreateNotebook={handleCreateNotebook}
               onUpdateNotebook={handleUpdateNotebook}
               onDeleteNotebook={handleDeleteNotebook}
-              onUpload={file => { void handleUploadDocument(file); }}
+              onUpload={(file, link) => { void handleUploadDocument(file, link); }}
               onOpenDocument={document => { void handleOpenDocument(document); }}
               onDeleteDocument={document => { void handleDeleteDocument(document); }}
               onLinkDocument={handleLinkDocument}
