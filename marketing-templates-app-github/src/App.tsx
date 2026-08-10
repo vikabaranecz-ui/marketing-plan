@@ -4,7 +4,7 @@ import {
   Download, Upload, Languages, RotateCcw, FileText, AlertTriangle,
   Sun, Moon, Copy, Trash2, Info, X, ChevronDown, ChevronRight,
   Menu, Eye, EyeOff, Table, Users, Cloud, CloudOff, LoaderCircle, Pencil,
-  Archive, CalendarRange, MoreHorizontal, SlidersHorizontal, FolderOpen, LogOut, CircleUserRound,
+  Archive, CalendarRange, MoreHorizontal, SlidersHorizontal, LogOut, CircleUserRound,
   Share2, Lock, UserPlus, Shield, Smartphone, Bell, Lightbulb, Home, ListTodo, NotebookPen, Bot
 } from 'lucide-react';
 import './App.css';
@@ -2199,7 +2199,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
             onClick={() => setIsMobilePlanSheetOpen(true)}
             aria-label={lang === 'uk' ? 'Відкрити список планів' : 'Open plans list'}
           >
-            <FolderOpen size={20} />
+            <img className="mobile-brand-icon" src="/icons/marketing-plan-192.png" alt="" />
           </button>
           <button className="mobile-current-plan" onClick={() => setIsMobilePlanSheetOpen(true)}>
             <small>

@@ -40,9 +40,14 @@ export default function SimpleHome({
   return (
     <section className="simple-home">
       <header className="simple-home-hero">
-        <span className="simple-home-date"><CalendarDays size={18} />{today}</span>
-        <h1>{lang === 'uk' ? 'Що робимо сьогодні?' : 'What are we doing today?'}</h1>
-        <p>{lang === 'uk' ? 'Усе важливе — простими кроками в одному місці.' : 'Everything important, in simple steps and one place.'}</p>
+        <div className="simple-home-hero-copy">
+          <span className="simple-home-date"><CalendarDays size={18} />{today}</span>
+          <h1>{lang === 'uk' ? 'Що робимо сьогодні?' : 'What are we doing today?'}</h1>
+          <p>{lang === 'uk' ? 'Усе важливе — простими кроками в одному місці.' : 'Everything important, in simple steps and one place.'}</p>
+        </div>
+        <div className="simple-home-mascot" aria-hidden="true">
+          <img src="/icons/marketing-plan-192.png" alt="" />
+        </div>
       </header>
 
       <div className="simple-home-actions">
