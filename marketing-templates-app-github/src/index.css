@@ -6052,6 +6052,7 @@ textarea:focus-visible {
 .note-attachment-row small { color: var(--text-secondary); }
 .note-attachment-row > button { min-height: 38px; min-width: 38px; padding: 0 10px; border-radius: 11px; }
 .note-attachment-row > button.danger { color: var(--danger); }
+.note-attachment-row.excel > svg:first-child { color: #16834b; }
 
 @media (max-width: 640px) {
   .note-input-tools {

@@ -1,5 +1,5 @@
 import {
-  BookOpen, Camera, ExternalLink, FileText, Folder, FolderOpen, FolderPlus,
+  BookOpen, Camera, ExternalLink, FileSpreadsheet, FileText, Folder, FolderOpen, FolderPlus,
   Link2, NotebookPen, Paperclip, PenLine, Pencil, Plus, Save, ScanText,
   Search, SlidersHorizontal, Trash2, Upload, X,
 } from 'lucide-react';
@@ -33,6 +33,12 @@ interface KnowledgeHubProps {
 }
 
 type FilterValue = 'all' | 'unlinked' | string;
+const EXCEL_FILE_TYPES = '.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel';
+
+const isExcelDocument = (document: WorkspaceDocument) =>
+  /\.(xlsx|xls)$/i.test(document.name)
+  || document.mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  || document.mimeType === 'application/vnd.ms-excel';
 
 export default function KnowledgeHub({
   lang, notes, notebooks, documents, plans, tasks, isUploading,
@@ -189,13 +195,13 @@ export default function KnowledgeHub({
           <div className="note-input-tools">
             <button onClick={() => setHandwritingOpen(true)}><PenLine size={17} /><span>{lang === 'uk' ? 'Apple Pencil' : 'Apple Pencil'}</span></button>
             <button onClick={() => photoRef.current?.click()} disabled={isUploading}><Camera size={17} /><span>{lang === 'uk' ? 'Фото' : 'Photo'}</span></button>
-            <button onClick={() => fileRef.current?.click()} disabled={isUploading}><Upload size={17} /><span>{lang === 'uk' ? 'PDF / файл' : 'PDF / file'}</span></button>
+            <button onClick={() => fileRef.current?.click()} disabled={isUploading}><Upload size={17} /><span>{lang === 'uk' ? 'PDF / Excel / файл' : 'PDF / Excel / file'}</span></button>
             <button onClick={() => ocrPhotoRef.current?.click()} disabled={ocrProgress !== null}><ScanText size={17} /><span>{lang === 'uk' ? 'Розпізнати камерою' : 'Recognize with camera'}</span></button>
             <button onClick={() => ocrFileRef.current?.click()} disabled={ocrProgress !== null}><ScanText size={17} /><span>{lang === 'uk' ? 'Розпізнати фото' : 'Recognize photo'}</span></button>
             <label className="note-language-select"><span>{lang === 'uk' ? 'Мова' : 'Language'}</span><select value={ocrLanguage} onChange={event => setOcrLanguage(event.target.value as HandwritingOcrLanguage)}><option value="ukr+eng">UA + EN</option><option value="ukr">Українська</option><option value="eng">English</option></select></label>
           </div>
           <input ref={photoRef} hidden type="file" accept="image/*" capture="environment" onChange={event => { uploadFile(event.target.files?.[0]); event.target.value = ''; }} />
-          <input ref={fileRef} hidden type="file" accept="application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif" onChange={event => { uploadFile(event.target.files?.[0]); event.target.value = ''; }} />
+          <input ref={fileRef} hidden type="file" accept={`application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif,${EXCEL_FILE_TYPES}`} onChange={event => { uploadFile(event.target.files?.[0]); event.target.value = ''; }} />
           <input ref={ocrPhotoRef} hidden type="file" accept="image/*" capture="environment" onChange={event => { void scanHandwriting(event.target.files?.[0]); event.target.value = ''; }} />
           <input ref={ocrFileRef} hidden type="file" accept="image/*" onChange={event => { void scanHandwriting(event.target.files?.[0]); event.target.value = ''; }} />
           {ocrProgress !== null && <div className="note-ocr-status"><span>{lang === 'uk' ? `Розпізнаю рукопис… ${ocrProgress}%` : `Recognizing handwriting… ${ocrProgress}%`}</span><progress max="100" value={ocrProgress} /></div>}
@@ -205,8 +211,8 @@ export default function KnowledgeHub({
 
           {(attachments.length > 0 || unfiledDocuments.length > 0) && <section className="note-attachments">
             <header><span><Paperclip size={16} />{lang === 'uk' ? 'Вкладення нотатки' : 'Note attachments'}</span><strong>{attachments.length}</strong></header>
-            {attachments.map(document => <div className="note-attachment-row" key={document.id}><FileText size={18} /><span><strong>{document.name}</strong><small>{(document.size / 1024 / 1024).toFixed(1)} MB</small></span><button onClick={() => onOpenDocument(document)} aria-label={lang === 'uk' ? 'Відкрити' : 'Open'}><ExternalLink size={16} /></button><button className="danger" onClick={() => onDeleteDocument(document)} aria-label={lang === 'uk' ? 'Видалити' : 'Delete'}><Trash2 size={16} /></button></div>)}
-            {unfiledDocuments.length > 0 && <details><summary>{lang === 'uk' ? `Раніше завантажені файли (${unfiledDocuments.length})` : `Previously uploaded files (${unfiledDocuments.length})`}</summary>{unfiledDocuments.map(document => <div className="note-attachment-row" key={document.id}><FileText size={18} /><span><strong>{document.name}</strong><small>{lang === 'uk' ? 'Ще не в нотатці' : 'Not in a note yet'}</small></span><button onClick={() => attachExisting(document)}>{lang === 'uk' ? 'Додати' : 'Attach'}</button></div>)}</details>}
+            {attachments.map(document => <div className={`note-attachment-row ${isExcelDocument(document) ? 'excel' : ''}`} key={document.id}>{isExcelDocument(document) ? <FileSpreadsheet size={18} /> : <FileText size={18} />}<span><strong>{document.name}</strong><small>{isExcelDocument(document) ? 'Excel · ' : ''}{(document.size / 1024 / 1024).toFixed(1)} MB</small></span><button onClick={() => onOpenDocument(document)} aria-label={lang === 'uk' ? 'Відкрити' : 'Open'}><ExternalLink size={16} /></button><button className="danger" onClick={() => onDeleteDocument(document)} aria-label={lang === 'uk' ? 'Видалити' : 'Delete'}><Trash2 size={16} /></button></div>)}
+            {unfiledDocuments.length > 0 && <details><summary>{lang === 'uk' ? `Раніше завантажені файли (${unfiledDocuments.length})` : `Previously uploaded files (${unfiledDocuments.length})`}</summary>{unfiledDocuments.map(document => <div className={`note-attachment-row ${isExcelDocument(document) ? 'excel' : ''}`} key={document.id}>{isExcelDocument(document) ? <FileSpreadsheet size={18} /> : <FileText size={18} />}<span><strong>{document.name}</strong><small>{isExcelDocument(document) ? 'Excel' : (lang === 'uk' ? 'Ще не в нотатці' : 'Not in a note yet')}</small></span><button onClick={() => attachExisting(document)}>{lang === 'uk' ? 'Додати' : 'Attach'}</button></div>)}</details>}
           </section>}
 
           <footer><button className="btn btn-secondary" onClick={() => { if (confirm(lang === 'uk' ? 'Видалити нотатку?' : 'Delete note?')) { onDeleteNote(draft.id); setDraft(null); setSelectedNoteId(''); } }}><Trash2 size={15} />{lang === 'uk' ? 'Видалити' : 'Delete'}</button><button className="btn btn-primary" onClick={() => onSaveNote({ ...draft, updatedAt: new Date().toISOString() })}><Save size={15} />{lang === 'uk' ? 'Зберегти' : 'Save'}</button></footer>
