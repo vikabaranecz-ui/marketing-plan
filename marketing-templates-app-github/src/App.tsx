@@ -91,6 +91,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
   
   // Layout views & search filters
   const [activeTab, setActiveTab] = useState<ActiveTab>('home');
+  const [quickTaskTitle, setQuickTaskTitle] = useState('');
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('days');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterAssignee, setFilterAssignee] = useState<string>('all');
@@ -1222,7 +1223,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
   };
 
   // Add Task
-  const handleAddTask = (status: Task['status'] = 'todo') => {
+  const handleAddTask = (status: Task['status'] = 'todo', title?: string) => {
     if (!canEditActivePlan) return showToast(lang === 'uk' ? 'У вас доступ лише для перегляду' : 'You have view-only access', 'error');
     saveToHistory(
       lang === 'uk' ? 'Додано нове завдання' : 'Added new task',
@@ -1236,7 +1237,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
 
     const newTask: Task = {
       id: `task_${Date.now()}`,
-      title: lang === 'uk' ? 'Нове завдання' : 'New Task',
+      title: title?.trim() || (lang === 'uk' ? 'Нове завдання' : 'New Task'),
       description: '',
       startDate: today,
       endDate: end,
@@ -1251,6 +1252,15 @@ function App({ accountEmail, onSignOut }: AppProps) {
     
     setLocalTasks(prev => [...prev, newTask]);
     setSelectedTaskId(newTask.id);
+  };
+
+  const handleQuickTaskCreate = () => {
+    const title = quickTaskTitle.trim();
+    if (!title) return;
+    setActiveTab('grid');
+    handleAddTask('todo', title);
+    setQuickTaskTitle('');
+    showToast(lang === 'uk' ? `Завдання «${title}» додано` : `Task “${title}” added`);
   };
 
   // Clone/Duplicate Task
@@ -2307,6 +2317,17 @@ function App({ accountEmail, onSignOut }: AppProps) {
               ))}
             </div>
 
+            <form className="quick-task-entry" onSubmit={event => { event.preventDefault(); handleQuickTaskCreate(); }}>
+              <Plus size={18} />
+              <input
+                value={quickTaskTitle}
+                onChange={event => setQuickTaskTitle(event.target.value)}
+                placeholder={lang === 'uk' ? `Додати завдання в «${activeTemplateTitle}»…` : `Add a task to “${activeTemplateTitle}”…`}
+                aria-label={lang === 'uk' ? 'Швидко додати завдання' : 'Quickly add task'}
+              />
+              <button type="submit" disabled={!quickTaskTitle.trim()}>{lang === 'uk' ? 'Додати' : 'Add'}</button>
+            </form>
+
             {(activeTab === 'gantt' || activeTab === 'plans') && (
               <div className="controls-group gantt-controls">
                 {activeTab === 'gantt' && (
@@ -2750,22 +2771,11 @@ function App({ accountEmail, onSignOut }: AppProps) {
         )}
 
         <nav className="mobile-bottom-nav" aria-label={lang === 'uk' ? 'Основна навігація' : 'Main navigation'}>
-          {([
-            { id: 'home' as ActiveTab, icon: <Home size={20} />, uk: 'Головна', en: 'Home' },
-            { id: 'all_tasks' as ActiveTab, icon: <ListTodo size={20} />, uk: 'Усі справи', en: 'All tasks' },
-            { id: 'plans' as ActiveTab, icon: <CalendarRange size={20} />, uk: 'Плани + задачі', en: 'Plans + tasks' },
-            { id: 'notes' as ActiveTab, icon: <NotebookPen size={20} />, uk: 'Нотатки', en: 'Notes' },
-            { id: 'assistant' as ActiveTab, icon: <Bot size={20} />, uk: 'AI', en: 'AI' },
-          ]).map(item => (
-            <button
-              className={activeTab === item.id ? 'active' : ''}
-              onClick={() => setActiveTab(item.id)}
-              key={item.id}
-            >
-              {item.icon}
-              <span>{lang === 'uk' ? item.uk : item.en}</span>
-            </button>
-          ))}
+          <button className={activeTab === 'home' ? 'active' : ''} onClick={() => setActiveTab('home')}><Home size={20} /><span>{lang === 'uk' ? 'Головна' : 'Home'}</span></button>
+          <button className={activeTab === 'plans' ? 'active' : ''} onClick={() => setActiveTab('plans')}><CalendarRange size={20} /><span>{lang === 'uk' ? 'Плани' : 'Plans'}</span></button>
+          <button className="mobile-quick-add" onClick={() => { setActiveTab('grid'); handleAddTask('todo'); }} aria-label={lang === 'uk' ? 'Швидко додати завдання' : 'Quickly add task'}><span><Plus size={24} /></span><small>{lang === 'uk' ? 'Записати' : 'Add'}</small></button>
+          <button className={activeTab === 'all_tasks' ? 'active' : ''} onClick={() => setActiveTab('all_tasks')}><Search size={20} /><span>{lang === 'uk' ? 'Знайти' : 'Find'}</span></button>
+          <button onClick={() => setIsMobileMenuOpen(true)}><MoreHorizontal size={20} /><span>{lang === 'uk' ? 'Ще' : 'More'}</span></button>
         </nav>
       </main>
 
@@ -2777,22 +2787,12 @@ function App({ accountEmail, onSignOut }: AppProps) {
 
         <nav className="workspace-right-groups">
           <section>
-            <p>{lang === 'uk' ? 'Початок' : 'Start'}</p>
+            <p>{lang === 'uk' ? 'Основне' : 'Main'}</p>
             <button className={activeTab === 'home' ? 'active' : ''} onClick={() => setActiveTab('home')}><Home size={18} /><span>{lang === 'uk' ? 'Головна' : 'Home'}</span></button>
-          </section>
-          <section>
-            <p>{lang === 'uk' ? 'Плани й завдання' : 'Plans & tasks'}</p>
-            <button className={activeTab === 'plans' ? 'active' : ''} onClick={() => setActiveTab('plans')}><CalendarRange size={18} /><span>{lang === 'uk' ? 'Усі плани' : 'All plans'}</span></button>
-            <button className={activeTab === 'all_tasks' ? 'active' : ''} onClick={() => setActiveTab('all_tasks')}><ListTodo size={18} /><span>{lang === 'uk' ? 'Усі завдання' : 'All tasks'}</span></button>
-            <button className={activeTab === 'grid' ? 'active' : ''} onClick={() => setActiveTab('grid')}><Table size={18} /><span>{lang === 'uk' ? 'Список плану' : 'Plan list'}</span></button>
-            <button className={activeTab === 'kanban' ? 'active' : ''} onClick={() => setActiveTab('kanban')}><Compass size={18} /><span>{lang === 'uk' ? 'Дошка' : 'Board'}</span></button>
-            <button className={activeTab === 'gantt' ? 'active' : ''} onClick={() => setActiveTab('gantt')}><Calendar size={18} /><span>Gantt</span></button>
-            <button className={activeTab === 'workload' ? 'active' : ''} onClick={() => setActiveTab('workload')}><Users size={18} /><span>{lang === 'uk' ? 'Навантаження' : 'Workload'}</span></button>
-          </section>
-          <section>
-            <p>{lang === 'uk' ? 'Матеріали й допомога' : 'Knowledge & help'}</p>
+            <button className={activeTab === 'plans' ? 'active' : ''} onClick={() => setActiveTab('plans')}><CalendarRange size={18} /><span>{lang === 'uk' ? 'Плани й завдання' : 'Plans & tasks'}</span></button>
+            <button className={activeTab === 'all_tasks' ? 'active' : ''} onClick={() => setActiveTab('all_tasks')}><Search size={18} /><span>{lang === 'uk' ? 'Знайти запис' : 'Find anything'}</span></button>
             <button className={activeTab === 'notes' ? 'active' : ''} onClick={() => setActiveTab('notes')}><NotebookPen size={18} /><span>{lang === 'uk' ? 'Нотатки та файли' : 'Notes & files'}</span></button>
-            <button className={activeTab === 'assistant' ? 'active' : ''} onClick={() => setActiveTab('assistant')}><Bot size={18} /><span>{lang === 'uk' ? 'AI-помічник' : 'AI assistant'}</span></button>
+            <button onClick={() => setIsMobileMenuOpen(true)}><MoreHorizontal size={18} /><span>{lang === 'uk' ? 'Ще можливості' : 'More tools'}</span></button>
           </section>
         </nav>
 
@@ -2800,8 +2800,8 @@ function App({ accountEmail, onSignOut }: AppProps) {
           <small>{lang === 'uk' ? 'Поточний план' : 'Current plan'}</small>
           <strong title={activeTemplateTitle}>{activeTemplateTitle}</strong>
           <div>
-            <button onClick={() => { setActiveTab('grid'); handleAddTask('todo'); }}><Plus size={15} />{lang === 'uk' ? 'Завдання' : 'Task'}</button>
-            <button onClick={() => openReminderCenter({ targetType: 'plan', planId: activeTemplateId })}><Bell size={15} />{lang === 'uk' ? 'Нагадати' : 'Remind'}</button>
+            <button className="workspace-quick-task" onClick={() => { setActiveTab('grid'); handleAddTask('todo'); }}><Plus size={16} />{lang === 'uk' ? 'Нове завдання' : 'New task'}</button>
+            <button onClick={() => setActiveTab('grid')}><ListTodo size={15} />{lang === 'uk' ? 'Відкрити' : 'Open'}</button>
           </div>
         </div>
       </aside>
@@ -2857,7 +2857,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
             <header className="mobile-sheet-header">
               <div>
                 <small>{activeTemplateTitle}</small>
-                <h2 id="mobile-actions-title">{lang === 'uk' ? 'Інструменти' : 'Tools'}</h2>
+                <h2 id="mobile-actions-title">{lang === 'uk' ? 'Ще можливості' : 'More tools'}</h2>
               </div>
               <button className="btn-icon" onClick={() => setIsMobileMenuOpen(false)} aria-label={getTranslation(lang, 'close')}><X size={18} /></button>
             </header>
@@ -2868,26 +2868,48 @@ function App({ accountEmail, onSignOut }: AppProps) {
                 <small>{accountEmail}</small>
               </span>
             </div>
-            <div className="mobile-action-grid">
-              <button onClick={() => { setIsMobileMenuOpen(false); setActiveTab('grid'); }}><Table size={19} /><span>{lang === 'uk' ? 'Завдання плану' : 'Plan tasks'}</span></button>
-              <button onClick={() => { setIsMobileMenuOpen(false); setActiveTab('kanban'); }}><Compass size={19} /><span>{lang === 'uk' ? 'Дошка' : 'Board'}</span></button>
-              <button onClick={() => { setIsMobileMenuOpen(false); setActiveTab('gantt'); }}><Calendar size={19} /><span>Gantt</span></button>
-              <button onClick={() => { setIsMobileMenuOpen(false); setActiveTab('workload'); }}><Users size={19} /><span>{lang === 'uk' ? 'Навантаження' : 'Workload'}</span></button>
-              <button onClick={() => { setIsMobileMenuOpen(false); setIsTeamManagerOpen(true); }}><Users size={19} /><span>{lang === 'uk' ? 'Команда' : 'Team'}</span></button>
-              <button onClick={() => { setIsMobileMenuOpen(false); openReminderCenter({ targetType: 'plan', planId: activeTemplateId }); }}><Bell size={19} /><span>{lang === 'uk' ? 'Нагадування' : 'Reminders'}</span></button>
-              <button onClick={() => { setIsMobileMenuOpen(false); setIsIdeasOpen(true); }}><Lightbulb size={19} /><span>{lang === 'uk' ? 'Ідеї' : 'Ideas'}</span></button>
-              <button onClick={() => { setIsMobileMenuOpen(false); void handleTogglePlanSharing(); }}>{activeSharedPlan ? <Lock size={19} /> : <Share2 size={19} />}<span>{activeSharedPlan ? (lang === 'uk' ? 'Приватний' : 'Private') : (lang === 'uk' ? 'Поділитися' : 'Share')}</span></button>
-              <button onClick={() => { setIsMobileMenuOpen(false); setIsArchiveOpen(true); }}><Archive size={19} /><span>{lang === 'uk' ? 'Архів' : 'Archive'}</span></button>
-              <button onClick={() => { setIsMobileMenuOpen(false); handleDuplicateActivePlan(); }}><Copy size={19} /><span>{lang === 'uk' ? 'Дублювати' : 'Duplicate'}</span></button>
-              <button onClick={() => { setIsMobileMenuOpen(false); handleSaveAsTemplate(); }}><Plus size={19} /><span>{lang === 'uk' ? 'Як шаблон' : 'As template'}</span></button>
-              <button onClick={() => { setIsMobileMenuOpen(false); setIsResetConfirmOpen(true); }}><RotateCcw size={19} /><span>{lang === 'uk' ? 'Скинути' : 'Reset'}</span></button>
-              <button onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')}>{theme === 'light' ? <Moon size={19} /> : <Sun size={19} />}<span>{lang === 'uk' ? 'Тема' : 'Theme'}</span></button>
-              <button onClick={() => setLang(value => value === 'uk' ? 'en' : 'uk')}><Languages size={19} /><span>{lang === 'uk' ? 'Мова' : 'Language'}</span></button>
-              {!isInstalledApp && <button onClick={() => { setIsMobileMenuOpen(false); void handleInstallApp(); }}><Smartphone size={19} /><span>{lang === 'uk' ? 'Встановити' : 'Install'}</span></button>}
-              <button onClick={handleExportJSON}><Download size={19} /><span>JSON</span></button>
-              <button onClick={handleExportCSV}><FileText size={19} /><span>CSV</span></button>
-              <button onClick={() => fileInputRef.current?.click()}><Upload size={19} /><span>{lang === 'uk' ? 'Імпорт' : 'Import'}</span></button>
-              <button onClick={() => { setIsMobileMenuOpen(false); void onSignOut(); }}><LogOut size={19} /><span>{lang === 'uk' ? 'Вийти' : 'Sign out'}</span></button>
+            <div className="tools-group-list">
+              <section className="tools-group">
+                <h3>{lang === 'uk' ? 'Записи' : 'Capture'}</h3>
+                <div className="mobile-action-grid">
+                  <button onClick={() => { setIsMobileMenuOpen(false); setActiveTab('notes'); }}><NotebookPen size={19} /><span>{lang === 'uk' ? 'Нотатки й файли' : 'Notes & files'}</span></button>
+                  <button onClick={() => { setIsMobileMenuOpen(false); setIsIdeasOpen(true); }}><Lightbulb size={19} /><span>{lang === 'uk' ? 'Ідеї' : 'Ideas'}</span></button>
+                  <button onClick={() => { setIsMobileMenuOpen(false); setActiveTab('assistant'); }}><Bot size={19} /><span>{lang === 'uk' ? 'AI-помічник' : 'AI assistant'}</span></button>
+                  <button onClick={() => { setIsMobileMenuOpen(false); openReminderCenter({ targetType: 'plan', planId: activeTemplateId }); }}><Bell size={19} /><span>{lang === 'uk' ? 'Нагадування' : 'Reminders'}</span></button>
+                </div>
+              </section>
+              <section className="tools-group">
+                <h3>{lang === 'uk' ? 'Вигляд поточного плану' : 'Current plan view'}</h3>
+                <div className="mobile-action-grid">
+                  <button onClick={() => { setIsMobileMenuOpen(false); setActiveTab('grid'); }}><Table size={19} /><span>{lang === 'uk' ? 'Простий список' : 'Simple list'}</span></button>
+                  <button onClick={() => { setIsMobileMenuOpen(false); setActiveTab('kanban'); }}><Compass size={19} /><span>{lang === 'uk' ? 'Дошка' : 'Board'}</span></button>
+                  <button onClick={() => { setIsMobileMenuOpen(false); setActiveTab('gantt'); }}><Calendar size={19} /><span>Gantt</span></button>
+                  <button onClick={() => { setIsMobileMenuOpen(false); setActiveTab('workload'); }}><Users size={19} /><span>{lang === 'uk' ? 'Навантаження' : 'Workload'}</span></button>
+                </div>
+              </section>
+              <section className="tools-group">
+                <h3>{lang === 'uk' ? 'Команда й порядок' : 'Team & organization'}</h3>
+                <div className="mobile-action-grid">
+                  <button onClick={() => { setIsMobileMenuOpen(false); setIsTeamManagerOpen(true); }}><Users size={19} /><span>{lang === 'uk' ? 'Команда' : 'Team'}</span></button>
+                  <button onClick={() => { setIsMobileMenuOpen(false); void handleTogglePlanSharing(); }}>{activeSharedPlan ? <Lock size={19} /> : <Share2 size={19} />}<span>{activeSharedPlan ? (lang === 'uk' ? 'Зробити приватним' : 'Make private') : (lang === 'uk' ? 'Поділитися' : 'Share')}</span></button>
+                  <button onClick={() => { setIsMobileMenuOpen(false); setIsArchiveOpen(true); }}><Archive size={19} /><span>{lang === 'uk' ? 'Архів' : 'Archive'}</span></button>
+                  <button onClick={() => { setIsMobileMenuOpen(false); handleDuplicateActivePlan(); }}><Copy size={19} /><span>{lang === 'uk' ? 'Дублювати план' : 'Duplicate plan'}</span></button>
+                </div>
+              </section>
+              <section className="tools-group tools-group-secondary">
+                <h3>{lang === 'uk' ? 'Налаштування й дані' : 'Settings & data'}</h3>
+                <div className="mobile-action-grid">
+                  <button onClick={() => { setIsMobileMenuOpen(false); handleSaveAsTemplate(); }}><Plus size={19} /><span>{lang === 'uk' ? 'Зберегти шаблон' : 'Save template'}</span></button>
+                  <button onClick={() => { setIsMobileMenuOpen(false); setIsResetConfirmOpen(true); }}><RotateCcw size={19} /><span>{lang === 'uk' ? 'Скинути план' : 'Reset plan'}</span></button>
+                  <button onClick={() => setTheme(value => value === 'light' ? 'dark' : 'light')}>{theme === 'light' ? <Moon size={19} /> : <Sun size={19} />}<span>{lang === 'uk' ? 'Тема' : 'Theme'}</span></button>
+                  <button onClick={() => setLang(value => value === 'uk' ? 'en' : 'uk')}><Languages size={19} /><span>{lang === 'uk' ? 'Мова' : 'Language'}</span></button>
+                  {!isInstalledApp && <button onClick={() => { setIsMobileMenuOpen(false); void handleInstallApp(); }}><Smartphone size={19} /><span>{lang === 'uk' ? 'Встановити' : 'Install'}</span></button>}
+                  <button onClick={handleExportJSON}><Download size={19} /><span>JSON</span></button>
+                  <button onClick={handleExportCSV}><FileText size={19} /><span>CSV</span></button>
+                  <button onClick={() => fileInputRef.current?.click()}><Upload size={19} /><span>{lang === 'uk' ? 'Імпорт' : 'Import'}</span></button>
+                  <button onClick={() => { setIsMobileMenuOpen(false); void onSignOut(); }}><LogOut size={19} /><span>{lang === 'uk' ? 'Вийти' : 'Sign out'}</span></button>
+                </div>
+              </section>
             </div>
           </section>
         </>
