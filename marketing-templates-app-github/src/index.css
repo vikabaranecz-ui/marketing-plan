@@ -1,6 +1,6 @@
 /* Light (default) & Dark glassmorphic stylesheet for GanttMarketing App */
 
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Neucha&family=Outfit:wght@300;400;500;600;700&display=swap');
 
 :root {
   --font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -9891,5 +9891,131 @@ body {
     background: var(--bg-app);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
+  }
+}
+
+/* Mixed editorial typography: handwriting + typewriter + readable UI sans. */
+:root {
+  --font-handwritten: 'Neucha', 'Comic Sans MS', cursive;
+  --font-typewriter: 'IBM Plex Mono', 'Courier New', monospace;
+}
+
+/* Handwritten accents are reserved for expressive, short headlines. */
+.simple-home-hero h1,
+.ai-hero h1,
+.mobile-screen-intro h1,
+.portfolio-view-heading h1,
+.plans-calendar-intro h1,
+.simple-page-header h1,
+.simple-section-heading h2,
+.auth-card h1,
+.dialog-header h2,
+.mobile-sheet-header h2,
+.ideas-dialog h2,
+.reminder-center-dialog h2,
+.handwriting-dialog h2 {
+  font-family: var(--font-handwritten);
+  font-weight: 400;
+  letter-spacing: 0.015em;
+}
+
+.simple-home-hero h1,
+.ai-hero h1 {
+  font-size: clamp(2rem, 5vw, 3.45rem);
+  line-height: 0.98;
+}
+
+.simple-section-heading h2,
+.portfolio-view-heading h1,
+.plans-calendar-intro h1,
+.simple-page-header h1,
+.mobile-screen-intro h1 {
+  font-size: clamp(1.5rem, 3vw, 2.05rem);
+  line-height: 1.02;
+}
+
+/* Typewriter labels organize dates, state and navigation without affecting long copy. */
+.eyebrow,
+.simple-home-date,
+.simple-page-header > span,
+.mobile-screen-intro > div > span,
+.portfolio-view-heading .eyebrow,
+.plans-calendar-intro .eyebrow,
+.sidebar-section-title,
+.workspace-right-groups p,
+.summary-stat span,
+.all-task-status,
+.all-task-copy > small,
+.portfolio-plan-title small,
+.portfolio-plan-tasks small,
+.portfolio-gantt-task-row small,
+.plans-calendar-plan-copy small,
+.card-date,
+.gantt-title-subline,
+.mobile-plan-copy small,
+.mobile-task-copy small,
+.mobile-current-plan small,
+.auth-eyebrow,
+.control-label,
+.kanban-count,
+.plan-access-badge,
+.today-panel-tabs,
+.portfolio-view-switch,
+.portfolio-zoom-switch,
+.mobile-zoom-switch,
+.view-tabs,
+.knowledge-tabs {
+  font-family: var(--font-typewriter);
+  letter-spacing: 0.025em;
+}
+
+.simple-home-date,
+.eyebrow,
+.portfolio-view-heading .eyebrow,
+.plans-calendar-intro .eyebrow,
+.auth-eyebrow {
+  letter-spacing: 0.09em;
+}
+
+.simple-home-actions strong,
+.home-action-icon + strong {
+  font-family: var(--font-typewriter);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+/* A subtle handwritten note treatment for friendly empty states. */
+.simple-empty strong,
+.portfolio-column-empty,
+.portfolio-plan-empty,
+.plans-calendar-empty h2,
+.kanban-empty,
+.empty-mini {
+  font-family: var(--font-handwritten);
+  font-size: 1.05rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 640px) {
+  .simple-home-hero h1,
+  .ai-hero h1 {
+    font-size: clamp(1.75rem, 9vw, 2.5rem);
+  }
+
+  .simple-section-heading h2,
+  .portfolio-view-heading h1,
+  .plans-calendar-intro h1,
+  .simple-page-header h1,
+  .mobile-screen-intro h1 {
+    font-size: clamp(1.35rem, 7vw, 1.75rem);
+  }
+
+  .portfolio-view-switch,
+  .portfolio-zoom-switch,
+  .mobile-zoom-switch,
+  .view-tabs,
+  .knowledge-tabs {
+    letter-spacing: 0;
   }
 }
