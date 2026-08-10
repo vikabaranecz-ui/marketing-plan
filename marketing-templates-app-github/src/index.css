@@ -6134,6 +6134,99 @@ textarea:focus-visible {
   }
 }
 
+/* Visible, consistent edit and delete actions in Notes. */
+.notebook-row > button:not(.notebook-row-main) {
+  opacity: 1;
+  border-radius: 9px;
+}
+
+.notebook-row > button:not(.notebook-row-main):hover,
+.note-list-row > button:not(.note-list-row-main):hover,
+.note-attachment-row > button:hover {
+  background: var(--bg-hover);
+}
+
+.note-list-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px 34px;
+  align-items: center;
+  min-height: 58px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 12px;
+}
+
+.note-list-row.active {
+  border-color: var(--glass-border);
+  background: var(--glass-surface-strong);
+  box-shadow: 0 8px 18px rgba(26, 29, 37, 0.1);
+}
+
+.knowledge-library-sidebar .knowledge-note-list .note-list-row-main {
+  min-width: 0;
+  padding: 10px;
+  align-items: flex-start;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: left;
+}
+
+.knowledge-library-sidebar .knowledge-note-list .note-list-row > button:not(.note-list-row-main) {
+  display: grid;
+  width: 30px;
+  min-height: 34px;
+  padding: 0;
+  align-items: center;
+  justify-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.note-list-row > button.danger,
+.note-editor-actions .danger { color: var(--danger); }
+
+.note-editor-heading {
+  align-items: center;
+}
+
+.note-editor-title {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 6px;
+}
+
+.note-editor-title > small {
+  color: var(--text-muted);
+  font-family: var(--font-typewriter);
+  font-size: 0.62rem;
+}
+
+.note-editor-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 7px;
+}
+
+.note-editor-actions .btn {
+  min-height: 42px;
+  padding-inline: 13px;
+}
+
+.note-attachment-row {
+  grid-template-columns: 22px minmax(0, 1fr) auto auto auto;
+}
+
+@media (max-width: 720px) {
+  .note-editor-heading { align-items: stretch; }
+  .note-editor-title > small { align-self: flex-end; }
+  .note-editor-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .note-editor-actions .btn { width: 100%; }
+  .note-attachment-row { grid-template-columns: 20px minmax(0, 1fr) 42px 42px 42px; gap: 5px; }
+}
+
 /* Files and handwriting live inside a note, never in a separate library. */
 .note-input-tools {
   display: flex;
@@ -10741,6 +10834,49 @@ body {
 }
 
 /* Note editor must win over the older responsive dashboard rules above. */
+.notebook-row > button:not(.notebook-row-main) { opacity: 1; border-radius: 9px; }
+.note-list-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px 34px;
+  align-items: center;
+  min-height: 58px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 12px;
+}
+.note-list-row.active {
+  border-color: var(--glass-border);
+  background: var(--glass-surface-strong);
+  box-shadow: 0 8px 18px rgba(26, 29, 37, 0.1);
+}
+.knowledge-library-sidebar .knowledge-note-list .note-list-row-main {
+  min-width: 0;
+  padding: 10px;
+  align-items: flex-start;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: left;
+}
+.knowledge-library-sidebar .knowledge-note-list .note-list-row > button:not(.note-list-row-main) {
+  display: grid;
+  width: 30px;
+  min-height: 34px;
+  padding: 0;
+  align-items: center;
+  justify-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+}
+.note-list-row > button.danger,
+.note-editor-actions .danger { color: var(--danger); }
+.note-editor-heading { align-items: center; }
+.note-editor-title { display: grid; min-width: 0; flex: 1; gap: 6px; }
+.note-editor-title > small { color: var(--text-muted); font-family: var(--font-typewriter); font-size: 0.62rem; }
+.note-editor-actions { display: flex; flex: 0 0 auto; gap: 7px; }
+.note-editor-actions .btn { min-height: 42px; padding-inline: 13px; }
+.note-attachment-row { grid-template-columns: 22px minmax(0, 1fr) auto auto auto; }
 .knowledge-notebooks-layout { min-height: min(720px, calc(100dvh - 245px)); }
 .knowledge-editor {
   gap: 14px;
@@ -10775,6 +10911,11 @@ body {
 }
 
 @media (max-width: 720px) {
+  .note-editor-heading { align-items: stretch; }
+  .note-editor-title > small { align-self: flex-end; }
+  .note-editor-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .note-editor-actions .btn { width: 100%; }
+  .note-attachment-row { grid-template-columns: 20px minmax(0, 1fr) 42px 42px 42px; gap: 5px; }
   .knowledge-notebooks-layout { min-height: 0; }
   .knowledge-editor { gap: 11px; margin-top: 12px; padding: 15px 12px; border-radius: 22px; }
   .note-input-tools { grid-template-columns: repeat(5, minmax(44px, 1fr)); gap: 5px; }

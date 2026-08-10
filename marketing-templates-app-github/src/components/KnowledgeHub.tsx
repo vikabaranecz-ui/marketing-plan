@@ -28,6 +28,7 @@ interface KnowledgeHubProps {
   onDeleteNotebook: (notebookId: string) => void;
   onUpload: (file: File, link: DocumentLink) => void;
   onOpenDocument: (document: WorkspaceDocument) => void;
+  onRenameDocument: (documentId: string, name: string) => void;
   onDeleteDocument: (document: WorkspaceDocument) => void;
   onLinkDocument: (documentId: string, link: Partial<DocumentLink>) => void;
 }
@@ -43,7 +44,7 @@ const isExcelDocument = (document: WorkspaceDocument) =>
 export default function KnowledgeHub({
   lang, notes, notebooks, documents, plans, tasks, isUploading,
   onCreateNote, onSaveNote, onDeleteNote, onCreateNotebook, onUpdateNotebook,
-  onDeleteNotebook, onUpload, onOpenDocument, onDeleteDocument, onLinkDocument,
+  onDeleteNotebook, onUpload, onOpenDocument, onRenameDocument, onDeleteDocument, onLinkDocument,
 }: KnowledgeHubProps) {
   const [query, setQuery] = useState('');
   const [selectedNoteId, setSelectedNoteId] = useState(notes[0]?.id ?? '');
@@ -59,6 +60,7 @@ export default function KnowledgeHub({
   const fileRef = useRef<HTMLInputElement>(null);
   const ocrPhotoRef = useRef<HTMLInputElement>(null);
   const ocrFileRef = useRef<HTMLInputElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
   const deferredQuery = useDeferredValue(query.toLocaleLowerCase().trim());
 
   const taskFilterOptions = useMemo(
@@ -87,6 +89,15 @@ export default function KnowledgeHub({
   }, [draft, notes, selectedNoteId]);
 
   const selectNote = (note: WorkspaceNote) => { setSelectedNoteId(note.id); setDraft(note); };
+  const editNote = (note: WorkspaceNote) => {
+    selectNote(note);
+    window.requestAnimationFrame(() => { titleRef.current?.focus(); titleRef.current?.select(); });
+  };
+  const deleteNote = (note: WorkspaceNote) => {
+    if (!confirm(lang === 'uk' ? `Видалити нотатку «${note.title || 'Без назви'}»?` : `Delete “${note.title || 'Untitled'}”?`)) return;
+    onDeleteNote(note.id);
+    if (draft?.id === note.id) { setDraft(null); setSelectedNoteId(''); }
+  };
   const createNote = () => {
     const note = onCreateNote(activeNotebook?.id);
     setSelectedNoteId(note.id);
@@ -120,6 +131,10 @@ export default function KnowledgeHub({
   const attachExisting = (document: WorkspaceDocument) => {
     if (!draft) return;
     onLinkDocument(document.id, documentLink());
+  };
+  const renameDocument = (document: WorkspaceDocument) => {
+    const name = prompt(lang === 'uk' ? 'Нова назва файлу' : 'New file name', document.name)?.trim();
+    if (name && name !== document.name) onRenameDocument(document.id, name);
   };
   const scanHandwriting = async (file?: File) => {
     if (!file || !draft) return;
@@ -177,15 +192,19 @@ export default function KnowledgeHub({
           </div>}
           <div className="knowledge-note-list">
             <div className="note-list-heading"><span>{lang === 'uk' ? 'Нотатки' : 'Notes'}</span><strong>{filteredNotes.length}</strong></div>
-            {filteredNotes.map(note => <button className={selectedNoteId === note.id ? 'active' : ''} onClick={() => selectNote(note)} key={note.id}><strong>{note.title || (lang === 'uk' ? 'Без назви' : 'Untitled')}</strong><small>{notebooks.find(item => item.id === note.notebookId)?.name ?? (lang === 'uk' ? 'Без щоденника' : 'Unfiled')} · {new Date(note.updatedAt).toLocaleDateString(lang === 'uk' ? 'uk-UA' : 'en-US')}</small></button>)}
+            {filteredNotes.map(note => <div className={`note-list-row ${selectedNoteId === note.id ? 'active' : ''}`} key={note.id}>
+              <button className="note-list-row-main" onClick={() => selectNote(note)}><strong>{note.title || (lang === 'uk' ? 'Без назви' : 'Untitled')}</strong><small>{notebooks.find(item => item.id === note.notebookId)?.name ?? (lang === 'uk' ? 'Без щоденника' : 'Unfiled')} · {new Date(note.updatedAt).toLocaleDateString(lang === 'uk' ? 'uk-UA' : 'en-US')}</small></button>
+              <button onClick={() => editNote(note)} aria-label={lang === 'uk' ? 'Редагувати нотатку' : 'Edit note'} title={lang === 'uk' ? 'Редагувати' : 'Edit'}><Pencil size={14} /></button>
+              <button className="danger" onClick={() => deleteNote(note)} aria-label={lang === 'uk' ? 'Видалити нотатку' : 'Delete note'} title={lang === 'uk' ? 'Видалити' : 'Delete'}><Trash2 size={14} /></button>
+            </div>)}
             {filteredNotes.length === 0 && <div className="notebook-empty">{lang === 'uk' ? 'Нічого не знайдено' : 'Nothing found'}</div>}
           </div>
         </aside>
 
         {draft ? <article className="knowledge-editor">
           <header className="note-editor-heading">
-            <input className="knowledge-title-input" value={draft.title} onChange={event => setDraft({ ...draft, title: event.target.value })} placeholder={lang === 'uk' ? 'Назва нотатки' : 'Note title'} />
-            <small>{lang === 'uk' ? 'Оновлено' : 'Updated'} {new Date(draft.updatedAt).toLocaleDateString(lang === 'uk' ? 'uk-UA' : 'en-US')}</small>
+            <div className="note-editor-title"><input ref={titleRef} className="knowledge-title-input" value={draft.title} onChange={event => setDraft({ ...draft, title: event.target.value })} placeholder={lang === 'uk' ? 'Назва нотатки' : 'Note title'} /><small>{lang === 'uk' ? 'Оновлено' : 'Updated'} {new Date(draft.updatedAt).toLocaleDateString(lang === 'uk' ? 'uk-UA' : 'en-US')}</small></div>
+            <div className="note-editor-actions"><button className="btn btn-secondary danger" onClick={() => deleteNote(draft)}><Trash2 size={15} /><span>{lang === 'uk' ? 'Видалити' : 'Delete'}</span></button><button className="btn btn-primary" onClick={() => onSaveNote({ ...draft, updatedAt: new Date().toISOString() })}><Save size={15} /><span>{lang === 'uk' ? 'Зберегти' : 'Save'}</span></button></div>
           </header>
 
           <details className="note-properties">
@@ -220,11 +239,9 @@ export default function KnowledgeHub({
 
           {(attachments.length > 0 || unfiledDocuments.length > 0) && <section className="note-attachments">
             <header><span><Paperclip size={16} />{lang === 'uk' ? 'Вкладення нотатки' : 'Note attachments'}</span><strong>{attachments.length}</strong></header>
-            {attachments.map(document => <div className={`note-attachment-row ${isExcelDocument(document) ? 'excel' : ''}`} key={document.id}>{isExcelDocument(document) ? <FileSpreadsheet size={18} /> : <FileText size={18} />}<span><strong>{document.name}</strong><small>{isExcelDocument(document) ? 'Excel · ' : ''}{(document.size / 1024 / 1024).toFixed(1)} MB</small></span><button onClick={() => onOpenDocument(document)} aria-label={lang === 'uk' ? 'Відкрити' : 'Open'}><ExternalLink size={16} /></button><button className="danger" onClick={() => onDeleteDocument(document)} aria-label={lang === 'uk' ? 'Видалити' : 'Delete'}><Trash2 size={16} /></button></div>)}
-            {unfiledDocuments.length > 0 && <details><summary>{lang === 'uk' ? `Раніше завантажені файли (${unfiledDocuments.length})` : `Previously uploaded files (${unfiledDocuments.length})`}</summary>{unfiledDocuments.map(document => <div className={`note-attachment-row ${isExcelDocument(document) ? 'excel' : ''}`} key={document.id}>{isExcelDocument(document) ? <FileSpreadsheet size={18} /> : <FileText size={18} />}<span><strong>{document.name}</strong><small>{isExcelDocument(document) ? 'Excel' : (lang === 'uk' ? 'Ще не в нотатці' : 'Not in a note yet')}</small></span><button onClick={() => attachExisting(document)}>{lang === 'uk' ? 'Додати' : 'Attach'}</button></div>)}</details>}
+            {attachments.map(document => <div className={`note-attachment-row ${isExcelDocument(document) ? 'excel' : ''}`} key={document.id}>{isExcelDocument(document) ? <FileSpreadsheet size={18} /> : <FileText size={18} />}<span><strong>{document.name}</strong><small>{isExcelDocument(document) ? 'Excel · ' : ''}{(document.size / 1024 / 1024).toFixed(1)} MB</small></span><button onClick={() => onOpenDocument(document)} aria-label={lang === 'uk' ? 'Відкрити' : 'Open'} title={lang === 'uk' ? 'Відкрити' : 'Open'}><ExternalLink size={16} /></button><button onClick={() => renameDocument(document)} aria-label={lang === 'uk' ? 'Перейменувати' : 'Rename'} title={lang === 'uk' ? 'Редагувати назву' : 'Edit name'}><Pencil size={16} /></button><button className="danger" onClick={() => onDeleteDocument(document)} aria-label={lang === 'uk' ? 'Видалити' : 'Delete'} title={lang === 'uk' ? 'Видалити' : 'Delete'}><Trash2 size={16} /></button></div>)}
+            {unfiledDocuments.length > 0 && <details><summary>{lang === 'uk' ? `Раніше завантажені файли (${unfiledDocuments.length})` : `Previously uploaded files (${unfiledDocuments.length})`}</summary>{unfiledDocuments.map(document => <div className={`note-attachment-row ${isExcelDocument(document) ? 'excel' : ''}`} key={document.id}>{isExcelDocument(document) ? <FileSpreadsheet size={18} /> : <FileText size={18} />}<span><strong>{document.name}</strong><small>{isExcelDocument(document) ? 'Excel' : (lang === 'uk' ? 'Ще не в нотатці' : 'Not in a note yet')}</small></span><button onClick={() => attachExisting(document)}>{lang === 'uk' ? 'Додати' : 'Attach'}</button><button onClick={() => renameDocument(document)} aria-label={lang === 'uk' ? 'Перейменувати' : 'Rename'} title={lang === 'uk' ? 'Редагувати назву' : 'Edit name'}><Pencil size={16} /></button><button className="danger" onClick={() => onDeleteDocument(document)} aria-label={lang === 'uk' ? 'Видалити' : 'Delete'} title={lang === 'uk' ? 'Видалити' : 'Delete'}><Trash2 size={16} /></button></div>)}</details>}
           </section>}
-
-          <footer><button className="btn btn-secondary" onClick={() => { if (confirm(lang === 'uk' ? 'Видалити нотатку?' : 'Delete note?')) { onDeleteNote(draft.id); setDraft(null); setSelectedNoteId(''); } }}><Trash2 size={15} />{lang === 'uk' ? 'Видалити' : 'Delete'}</button><button className="btn btn-primary" onClick={() => onSaveNote({ ...draft, updatedAt: new Date().toISOString() })}><Save size={15} />{lang === 'uk' ? 'Зберегти' : 'Save'}</button></footer>
         </article> : <div className="simple-empty"><NotebookPen /><strong>{lang === 'uk' ? 'Створіть першу нотатку' : 'Create your first note'}</strong></div>}
       </div>
 

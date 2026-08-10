@@ -1059,6 +1059,11 @@ function App({ accountEmail, onSignOut }: AppProps) {
     }
   };
 
+  const handleRenameDocument = (documentId: string, name: string) => {
+    setDocuments(previous => previous.map(document => document.id === documentId ? { ...document, name } : document));
+    showToast(lang === 'uk' ? 'Назву файлу змінено' : 'File name updated');
+  };
+
   const handleLinkDocument = (
     documentId: string,
     link: Partial<Pick<WorkspaceDocument, 'noteId' | 'notebookId' | 'planId' | 'taskId'>>,
@@ -2757,6 +2762,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
               onDeleteNotebook={handleDeleteNotebook}
               onUpload={(file, link) => { void handleUploadDocument(file, link); }}
               onOpenDocument={document => { void handleOpenDocument(document); }}
+              onRenameDocument={handleRenameDocument}
               onDeleteDocument={document => { void handleDeleteDocument(document); }}
               onLinkDocument={handleLinkDocument}
             />
