@@ -4,7 +4,7 @@ import {
   Search, SlidersHorizontal, Trash2, Upload, X,
 } from 'lucide-react';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { recognizeHandwriting, type HandwritingOcrLanguage } from '../lib/handwritingOcr';
+import { recognizeHandwriting } from '../lib/handwritingOcr';
 import type { Language, WorkspaceDocument, WorkspaceNote, WorkspaceNotebook } from '../types';
 import HandwritingInputDialog from './HandwritingInputDialog';
 
@@ -53,7 +53,6 @@ export default function KnowledgeHub({
   const [taskFilter, setTaskFilter] = useState<FilterValue>('all');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [handwritingOpen, setHandwritingOpen] = useState(false);
-  const [ocrLanguage, setOcrLanguage] = useState<HandwritingOcrLanguage>(lang === 'uk' ? 'ukr+eng' : 'eng');
   const [ocrProgress, setOcrProgress] = useState<number | null>(null);
   const [ocrError, setOcrError] = useState('');
   const photoRef = useRef<HTMLInputElement>(null);
@@ -128,7 +127,7 @@ export default function KnowledgeHub({
     setOcrProgress(0);
     onUpload(file, documentLink());
     try {
-      const text = await recognizeHandwriting(file, ocrLanguage, setOcrProgress);
+      const text = await recognizeHandwriting(file, 'ukr+eng', setOcrProgress);
       if (!text) throw new Error('No text recognized');
       setDraft(previous => previous ? { ...previous, content: `${previous.content}${previous.content ? '\n\n' : ''}${text}` } : previous);
     } catch (error) {
@@ -184,21 +183,28 @@ export default function KnowledgeHub({
         </aside>
 
         {draft ? <article className="knowledge-editor">
-          <input className="knowledge-title-input" value={draft.title} onChange={event => setDraft({ ...draft, title: event.target.value })} placeholder={lang === 'uk' ? 'Назва нотатки' : 'Note title'} />
-          <div className="knowledge-editor-meta knowledge-editor-links">
-            <label><span>{lang === 'uk' ? 'Щоденник' : 'Journal'}</span><select value={draft.notebookId ?? ''} onChange={event => setDraft({ ...draft, notebookId: event.target.value || undefined })}><option value="">{lang === 'uk' ? 'Без щоденника' : 'No journal'}</option>{notebooks.map(notebook => <option value={notebook.id} key={notebook.id}>{notebook.name}</option>)}</select></label>
-            <label><span>{lang === 'uk' ? 'План' : 'Plan'}</span><select value={draft.planId ?? ''} onChange={event => setDraft({ ...draft, planId: event.target.value || undefined, taskId: undefined })}><option value="">{lang === 'uk' ? 'Без плану' : 'No plan'}</option>{plans.map(plan => <option value={plan.id} key={plan.id}>{plan.title}</option>)}</select></label>
-            <label><span>{lang === 'uk' ? 'Завдання' : 'Task'}</span><select value={draft.taskId ?? ''} disabled={!draft.planId} onChange={event => setDraft({ ...draft, taskId: event.target.value || undefined })}><option value="">{lang === 'uk' ? 'Без завдання' : 'No task'}</option>{draftTasks.map(task => <option value={task.id} key={`${task.planId}-${task.id}`}>{task.title}</option>)}</select></label>
-            <label><span>{lang === 'uk' ? 'Теги' : 'Tags'}</span><input value={draft.tags.join(', ')} onChange={event => setDraft({ ...draft, tags: event.target.value.split(',').map(tag => tag.trim()).filter(Boolean) })} placeholder={lang === 'uk' ? 'ідея, важливо' : 'idea, important'} /></label>
-          </div>
+          <header className="note-editor-heading">
+            <input className="knowledge-title-input" value={draft.title} onChange={event => setDraft({ ...draft, title: event.target.value })} placeholder={lang === 'uk' ? 'Назва нотатки' : 'Note title'} />
+            <small>{lang === 'uk' ? 'Оновлено' : 'Updated'} {new Date(draft.updatedAt).toLocaleDateString(lang === 'uk' ? 'uk-UA' : 'en-US')}</small>
+          </header>
+
+          <details className="note-properties">
+            <summary><Link2 size={16} /><span>{lang === 'uk' ? 'Щоденник, план, завдання й теги' : 'Journal, plan, task & tags'}</span></summary>
+            <div className="knowledge-editor-meta knowledge-editor-links">
+              <label><span>{lang === 'uk' ? 'Щоденник' : 'Journal'}</span><select value={draft.notebookId ?? ''} onChange={event => setDraft({ ...draft, notebookId: event.target.value || undefined })}><option value="">{lang === 'uk' ? 'Без щоденника' : 'No journal'}</option>{notebooks.map(notebook => <option value={notebook.id} key={notebook.id}>{notebook.name}</option>)}</select></label>
+              <label><span>{lang === 'uk' ? 'План' : 'Plan'}</span><select value={draft.planId ?? ''} onChange={event => setDraft({ ...draft, planId: event.target.value || undefined, taskId: undefined })}><option value="">{lang === 'uk' ? 'Без плану' : 'No plan'}</option>{plans.map(plan => <option value={plan.id} key={plan.id}>{plan.title}</option>)}</select></label>
+              <label><span>{lang === 'uk' ? 'Завдання' : 'Task'}</span><select value={draft.taskId ?? ''} disabled={!draft.planId} onChange={event => setDraft({ ...draft, taskId: event.target.value || undefined })}><option value="">{lang === 'uk' ? 'Без завдання' : 'No task'}</option>{draftTasks.map(task => <option value={task.id} key={`${task.planId}-${task.id}`}>{task.title}</option>)}</select></label>
+              <label><span>{lang === 'uk' ? 'Теги' : 'Tags'}</span><input value={draft.tags.join(', ')} onChange={event => setDraft({ ...draft, tags: event.target.value.split(',').map(tag => tag.trim()).filter(Boolean) })} placeholder={lang === 'uk' ? 'ідея, важливо' : 'idea, important'} /></label>
+            </div>
+          </details>
 
           <div className="note-input-tools">
-            <button onClick={() => setHandwritingOpen(true)}><PenLine size={17} /><span>{lang === 'uk' ? 'Apple Pencil' : 'Apple Pencil'}</span></button>
-            <button onClick={() => photoRef.current?.click()} disabled={isUploading}><Camera size={17} /><span>{lang === 'uk' ? 'Фото' : 'Photo'}</span></button>
-            <button onClick={() => fileRef.current?.click()} disabled={isUploading}><Upload size={17} /><span>{lang === 'uk' ? 'PDF / Excel / файл' : 'PDF / Excel / file'}</span></button>
-            <button onClick={() => ocrPhotoRef.current?.click()} disabled={ocrProgress !== null}><ScanText size={17} /><span>{lang === 'uk' ? 'Розпізнати камерою' : 'Recognize with camera'}</span></button>
-            <button onClick={() => ocrFileRef.current?.click()} disabled={ocrProgress !== null}><ScanText size={17} /><span>{lang === 'uk' ? 'Розпізнати фото' : 'Recognize photo'}</span></button>
-            <label className="note-language-select"><span>{lang === 'uk' ? 'Мова' : 'Language'}</span><select value={ocrLanguage} onChange={event => setOcrLanguage(event.target.value as HandwritingOcrLanguage)}><option value="ukr+eng">UA + EN</option><option value="ukr">Українська</option><option value="eng">English</option></select></label>
+            <span className="note-tools-label">{lang === 'uk' ? 'Додати до нотатки' : 'Add to note'}</span>
+            <button onClick={() => setHandwritingOpen(true)} title={lang === 'uk' ? 'Написати Apple Pencil' : 'Write with Apple Pencil'}><PenLine size={17} /><span>Apple Pencil</span></button>
+            <button onClick={() => photoRef.current?.click()} disabled={isUploading} title={lang === 'uk' ? 'Додати фото' : 'Add photo'}><Camera size={17} /><span>{lang === 'uk' ? 'Фото' : 'Photo'}</span></button>
+            <button onClick={() => fileRef.current?.click()} disabled={isUploading} title={lang === 'uk' ? 'Додати PDF, Excel або інший файл' : 'Add PDF, Excel, or another file'}><Upload size={17} /><span>{lang === 'uk' ? 'Файл' : 'File'}</span></button>
+            <button onClick={() => ocrPhotoRef.current?.click()} disabled={ocrProgress !== null} title={lang === 'uk' ? 'Сфотографувати й розпізнати рукопис' : 'Photograph and recognize handwriting'}><ScanText size={17} /><span>{lang === 'uk' ? 'Сканувати' : 'Scan'}</span></button>
+            <button onClick={() => ocrFileRef.current?.click()} disabled={ocrProgress !== null} title={lang === 'uk' ? 'Розпізнати рукопис із фото' : 'Recognize handwriting from photo'}><ScanText size={17} /><span>{lang === 'uk' ? 'Текст із фото' : 'Text from photo'}</span></button>
           </div>
           <input ref={photoRef} hidden type="file" accept="image/*" capture="environment" onChange={event => { uploadFile(event.target.files?.[0]); event.target.value = ''; }} />
           <input ref={fileRef} hidden type="file" accept={`application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif,${EXCEL_FILE_TYPES}`} onChange={event => { uploadFile(event.target.files?.[0]); event.target.value = ''; }} />
@@ -207,7 +213,10 @@ export default function KnowledgeHub({
           {ocrProgress !== null && <div className="note-ocr-status"><span>{lang === 'uk' ? `Розпізнаю рукопис… ${ocrProgress}%` : `Recognizing handwriting… ${ocrProgress}%`}</span><progress max="100" value={ocrProgress} /></div>}
           {ocrError && <p className="note-ocr-error">{ocrError}</p>}
 
-          <textarea lang={ocrLanguage === 'eng' ? 'en' : 'uk'} value={draft.content} onChange={event => setDraft({ ...draft, content: event.target.value })} placeholder={lang === 'uk' ? 'Почніть писати…\n\n• Думка\n• Спостереження\n• Наступний крок' : 'Start writing…'} />
+          <div className="note-writing-sheet">
+            <span>{lang === 'uk' ? 'Текст нотатки' : 'Note text'}</span>
+            <textarea lang={lang === 'uk' ? 'uk' : 'en'} value={draft.content} onChange={event => setDraft({ ...draft, content: event.target.value })} placeholder={lang === 'uk' ? 'Почніть писати…\n\n• Думка\n• Спостереження\n• Наступний крок' : 'Start writing…'} />
+          </div>
 
           {(attachments.length > 0 || unfiledDocuments.length > 0) && <section className="note-attachments">
             <header><span><Paperclip size={16} />{lang === 'uk' ? 'Вкладення нотатки' : 'Note attachments'}</span><strong>{attachments.length}</strong></header>
@@ -223,7 +232,7 @@ export default function KnowledgeHub({
         value={draft.content}
         title={lang === 'uk' ? 'Написати нотатку від руки' : 'Handwrite a note'}
         lang={lang}
-        recognitionLang={ocrLanguage === 'eng' ? 'en' : 'uk'}
+        recognitionLang={lang}
         multiline
         onApply={content => setDraft({ ...draft, content })}
         onClose={() => setHandwritingOpen(false)}
