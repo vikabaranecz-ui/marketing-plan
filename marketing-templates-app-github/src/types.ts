@@ -81,8 +81,20 @@ export interface WorkspaceNote {
   id: string;
   title: string;
   content: string;
+  notebookId?: string;
   planId?: string;
+  taskId?: string;
   tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkspaceNotebook {
+  id: string;
+  name: string;
+  color: string;
+  planId?: string;
+  taskId?: string;
   createdAt: string;
   updatedAt: string;
 }

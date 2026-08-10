@@ -8,7 +8,7 @@ import {
   Share2, Lock, UserPlus, Shield, Smartphone, Bell, Lightbulb, Home, ListTodo, NotebookPen, Bot
 } from 'lucide-react';
 import './App.css';
-import type { Task, MarketingTemplate, ActiveTab, ZoomLevel, Language, TeamMember, Reminder, Idea, WorkspaceDocument, WorkspaceNote } from './types';
+import type { Task, MarketingTemplate, ActiveTab, ZoomLevel, Language, TeamMember, Reminder, Idea, WorkspaceDocument, WorkspaceNote, WorkspaceNotebook } from './types';
 import { DEFAULT_TEMPLATES, TEAM_MEMBERS } from './data/templatesData';
 import { getTranslation } from './utils/locales';
 import { normalizeTaskProgress, withAutomaticTaskProgress } from './utils/taskProgress';
@@ -149,6 +149,9 @@ function App({ accountEmail, onSignOut }: AppProps) {
   );
   const [notes, setNotes] = useState<WorkspaceNote[]>(() =>
     getLocalStorage<WorkspaceNote[]>('gantt_notes', [])
+  );
+  const [notebooks, setNotebooks] = useState<WorkspaceNotebook[]>(() =>
+    getLocalStorage<WorkspaceNotebook[]>('gantt_notebooks', [])
   );
   const [documents, setDocuments] = useState<WorkspaceDocument[]>(() =>
     getLocalStorage<WorkspaceDocument[]>('gantt_documents', [])
@@ -506,6 +509,10 @@ function App({ accountEmail, onSignOut }: AppProps) {
   }, [notes]);
 
   useEffect(() => {
+    localStorage.setItem('gantt_notebooks', JSON.stringify(notebooks));
+  }, [notebooks]);
+
+  useEffect(() => {
     localStorage.setItem('gantt_documents', JSON.stringify(documents));
   }, [documents]);
 
@@ -550,6 +557,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
             reminders: [],
             ideas: [],
             notes: [],
+            notebooks: [],
             documents: [],
           };
           await saveCloudState(userId, cloudState);
@@ -571,6 +579,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
           const restoredReminders = cloudState.reminders ?? [];
           const restoredIdeas = cloudState.ideas ?? [];
           const restoredNotes = cloudState.notes ?? [];
+          const restoredNotebooks = cloudState.notebooks ?? [];
           const restoredDocuments = cloudState.documents ?? [];
           localStorage.setItem('gantt_hidden_default_templates', JSON.stringify(restoredHiddenDefaultTemplateIds));
           localStorage.setItem('gantt_team_members', JSON.stringify(restoredTeamMembers));
@@ -579,6 +588,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
           localStorage.setItem('gantt_reminders', JSON.stringify(restoredReminders));
           localStorage.setItem('gantt_ideas', JSON.stringify(restoredIdeas));
           localStorage.setItem('gantt_notes', JSON.stringify(restoredNotes));
+          localStorage.setItem('gantt_notebooks', JSON.stringify(restoredNotebooks));
           localStorage.setItem('gantt_documents', JSON.stringify(restoredDocuments));
           localStorage.setItem('gantt_active_template_id', JSON.stringify(cloudState.activeTemplateId));
 
@@ -605,6 +615,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
           setReminders(restoredReminders);
           setIdeas(restoredIdeas);
           setNotes(restoredNotes);
+          setNotebooks(restoredNotebooks);
           setDocuments(restoredDocuments);
           setActiveTemplateId(restoredTemplateId);
           setTasks(normalizeTaskProgress(restoredTasks));
@@ -712,6 +723,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
         reminders,
         ideas,
         notes,
+        notebooks,
         documents,
       };
 
@@ -728,7 +740,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
         window.clearTimeout(cloudSaveTimerRef.current);
       }
     };
-  }, [activeTemplateId, archivedPlanIds, customTemplates, documents, hiddenDefaultTemplateIds, ideas, lang, notes, planNameOverrides, reminders, showOnboarding, tasks, tasksTemplateId, teamMembers, theme]);
+  }, [activeTemplateId, archivedPlanIds, customTemplates, documents, hiddenDefaultTemplateIds, ideas, lang, notebooks, notes, planNameOverrides, reminders, showOnboarding, tasks, tasksTemplateId, teamMembers, theme]);
 
   useEffect(() => {
     if (!activeSharedPlan || !canEditActivePlan || tasksTemplateId !== activeTemplateId || !cloudHydratedRef.current || !localTasksDirtyRef.current) return;
@@ -923,12 +935,16 @@ function App({ accountEmail, onSignOut }: AppProps) {
     showToast(lang === 'uk' ? 'Ідею перетворено на план' : 'Idea converted to a plan');
   };
 
-  const handleCreateNote = (): WorkspaceNote => {
+  const handleCreateNote = (notebookId?: string): WorkspaceNote => {
     const now = new Date().toISOString();
+    const notebook = notebooks.find(item => item.id === notebookId);
     const note: WorkspaceNote = {
       id: createClientId('note'),
       title: lang === 'uk' ? 'Нова сторінка' : 'New page',
       content: '',
+      notebookId: notebook?.id,
+      planId: notebook?.planId,
+      taskId: notebook?.taskId,
       tags: [],
       createdAt: now,
       updatedAt: now,
@@ -944,6 +960,35 @@ function App({ accountEmail, onSignOut }: AppProps) {
 
   const handleDeleteNote = (noteId: string) => {
     setNotes(previous => previous.filter(note => note.id !== noteId));
+  };
+
+  const handleCreateNotebook = (name: string): WorkspaceNotebook => {
+    const now = new Date().toISOString();
+    const palette = ['#1f2937', '#4b5563', '#6366f1', '#0f766e', '#9a3412', '#7e22ce'];
+    const notebook: WorkspaceNotebook = {
+      id: createClientId('notebook'),
+      name,
+      color: palette[notebooks.length % palette.length],
+      createdAt: now,
+      updatedAt: now,
+    };
+    setNotebooks(previous => [...previous, notebook]);
+    showToast(lang === 'uk' ? 'Щоденник створено' : 'Journal created');
+    return notebook;
+  };
+
+  const handleUpdateNotebook = (notebook: WorkspaceNotebook) => {
+    const updatedAt = new Date().toISOString();
+    setNotebooks(previous => previous.map(item => item.id === notebook.id ? { ...notebook, updatedAt } : item));
+    setNotes(previous => previous.map(note => note.notebookId === notebook.id
+      ? { ...note, planId: notebook.planId, taskId: notebook.taskId, updatedAt }
+      : note));
+  };
+
+  const handleDeleteNotebook = (notebookId: string) => {
+    setNotebooks(previous => previous.filter(notebook => notebook.id !== notebookId));
+    setNotes(previous => previous.map(note => note.notebookId === notebookId ? { ...note, notebookId: undefined } : note));
+    showToast(lang === 'uk' ? 'Щоденник видалено, нотатки залишились' : 'Journal deleted, notes kept');
   };
 
   const handleUploadDocument = async (file: File) => {
@@ -2656,12 +2701,17 @@ function App({ accountEmail, onSignOut }: AppProps) {
             <KnowledgeHub
               lang={lang}
               notes={notes}
+              notebooks={notebooks}
               documents={documents}
               plans={allTemplates.map(template => ({ id: template.id, title: getPlanTitle(template) }))}
+              tasks={globalTaskItems.map(item => ({ id: item.task.id, title: item.task.title, planId: item.planId, planTitle: item.planTitle }))}
               isUploading={isDocumentUploading}
               onCreateNote={handleCreateNote}
               onSaveNote={handleSaveNote}
               onDeleteNote={handleDeleteNote}
+              onCreateNotebook={handleCreateNotebook}
+              onUpdateNotebook={handleUpdateNotebook}
+              onDeleteNotebook={handleDeleteNotebook}
               onUpload={file => { void handleUploadDocument(file); }}
               onOpenDocument={document => { void handleOpenDocument(document); }}
               onDeleteDocument={document => { void handleDeleteDocument(document); }}

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Idea, Language, MarketingTemplate, Reminder, Task, TeamMember, WorkspaceDocument, WorkspaceNote } from '../types';
+import type { Idea, Language, MarketingTemplate, Reminder, Task, TeamMember, WorkspaceDocument, WorkspaceNote, WorkspaceNotebook } from '../types';
 import type { Database, Json } from './database.types';
 
 const supabaseUrl =
@@ -32,6 +32,7 @@ export interface CloudAppState {
   reminders?: Reminder[];
   ideas?: Idea[];
   notes?: WorkspaceNote[];
+  notebooks?: WorkspaceNotebook[];
   documents?: WorkspaceDocument[];
 }
 
@@ -68,6 +69,7 @@ export const isCloudAppState = (value: unknown): value is CloudAppState => {
     (state.reminders === undefined || Array.isArray(state.reminders)) &&
     (state.ideas === undefined || Array.isArray(state.ideas)) &&
     (state.notes === undefined || Array.isArray(state.notes)) &&
+    (state.notebooks === undefined || Array.isArray(state.notebooks)) &&
     (state.documents === undefined || Array.isArray(state.documents))
   );
 };
