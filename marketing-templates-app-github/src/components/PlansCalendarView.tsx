@@ -1,5 +1,6 @@
-import { Archive, CalendarRange, ChevronRight } from 'lucide-react';
-import type { Language, ZoomLevel } from '../types';
+import { useState } from 'react';
+import { Archive, CalendarRange, ChevronDown, ChevronRight, ListTodo } from 'lucide-react';
+import type { Language, Task, ZoomLevel } from '../types';
 
 export interface PlanCalendarItem {
   id: string;
@@ -10,6 +11,7 @@ export interface PlanCalendarItem {
   progress: number;
   taskCount: number;
   color: string;
+  tasks: Task[];
 }
 
 interface PlansCalendarViewProps {
@@ -17,6 +19,7 @@ interface PlansCalendarViewProps {
   zoomLevel: ZoomLevel;
   lang: Language;
   onSelect: (id: string) => void;
+  onTaskSelect: (planId: string, taskId: string) => void;
   onArchive: (id: string) => void;
 }
 
@@ -43,7 +46,18 @@ const startOfWeek = (date: Date) => {
   return result;
 };
 
-export default function PlansCalendarView({ plans, zoomLevel, lang, onSelect, onArchive }: PlansCalendarViewProps) {
+export default function PlansCalendarView({ plans, zoomLevel, lang, onSelect, onTaskSelect, onArchive }: PlansCalendarViewProps) {
+  const [collapsedPlanIds, setCollapsedPlanIds] = useState<Set<string>>(new Set());
+
+  const togglePlan = (planId: string) => {
+    setCollapsedPlanIds(previous => {
+      const next = new Set(previous);
+      if (next.has(planId)) next.delete(planId);
+      else next.add(planId);
+      return next;
+    });
+  };
+
   if (plans.length === 0) {
     return (
       <div className="plans-calendar-empty">
@@ -54,7 +68,11 @@ export default function PlansCalendarView({ plans, zoomLevel, lang, onSelect, on
     );
   }
 
-  const planDates = plans.flatMap(plan => [parseDate(plan.startDate), parseDate(plan.endDate)]);
+  const rows = plans.flatMap(plan => [
+    { kind: 'plan' as const, plan, id: `plan_${plan.id}`, title: plan.title, startDate: plan.startDate, endDate: plan.endDate, progress: plan.progress, color: plan.color },
+    ...(!collapsedPlanIds.has(plan.id) ? plan.tasks.map(task => ({ kind: 'task' as const, plan, task, id: `task_${plan.id}_${task.id}`, title: task.title, startDate: task.startDate, endDate: task.endDate, progress: task.progress, color: task.color ?? plan.color })) : []),
+  ]);
+  const planDates = rows.flatMap(row => [parseDate(row.startDate), parseDate(row.endDate)]);
   const earliest = new Date(Math.min(...planDates.map(date => date.getTime())));
   const latest = new Date(Math.max(...planDates.map(date => date.getTime())));
   const timelineStart = zoomLevel === 'months'
@@ -90,25 +108,34 @@ export default function PlansCalendarView({ plans, zoomLevel, lang, onSelect, on
       <div className="plans-calendar-board">
         <div className="plans-calendar-sidebar">
           <div className="plans-calendar-sidebar-header">{lang === 'uk' ? 'План' : 'Plan'}</div>
-          {plans.map(plan => (
-            <div className="plans-calendar-plan" key={plan.id}>
-              <button className="plans-calendar-open" onClick={() => onSelect(plan.id)}>
-                <span className="plans-calendar-dot" style={{ background: plan.color }} />
+          {rows.map(row => row.kind === 'plan' ? (
+            <div className="plans-calendar-plan portfolio-gantt-plan-row" key={row.id}>
+              <button className="portfolio-gantt-collapse" onClick={() => togglePlan(row.plan.id)} aria-label={collapsedPlanIds.has(row.plan.id) ? (lang === 'uk' ? 'Показати завдання' : 'Show tasks') : (lang === 'uk' ? 'Сховати завдання' : 'Hide tasks')}>
+                {collapsedPlanIds.has(row.plan.id) ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
+              </button>
+              <button className="plans-calendar-open portfolio-gantt-plan-open" onClick={() => onSelect(row.plan.id)}>
+                <span className="plans-calendar-dot" style={{ background: row.plan.color }} />
                 <span className="plans-calendar-plan-copy">
-                  <strong>{plan.title}</strong>
-                  <small>{plan.taskCount} {lang === 'uk' ? 'завдань' : 'tasks'} · {plan.progress}%</small>
+                  <strong>{row.plan.title}</strong>
+                  <small>{row.plan.taskCount} {lang === 'uk' ? 'завдань' : 'tasks'} · {row.plan.progress}%</small>
                 </span>
                 <ChevronRight size={15} />
               </button>
               <button
                 className="plans-calendar-archive"
-                onClick={() => onArchive(plan.id)}
+                onClick={() => onArchive(row.plan.id)}
                 title={lang === 'uk' ? 'Архівувати план' : 'Archive plan'}
-                aria-label={`${lang === 'uk' ? 'Архівувати план' : 'Archive plan'}: ${plan.title}`}
+                aria-label={`${lang === 'uk' ? 'Архівувати план' : 'Archive plan'}: ${row.plan.title}`}
               >
                 <Archive size={14} />
               </button>
             </div>
+          ) : (
+            <button className="portfolio-gantt-task-row" onClick={() => onTaskSelect(row.plan.id, row.task.id)} key={row.id}>
+              <ListTodo size={14} style={{ color: row.color }} />
+              <span><strong>{row.task.title}</strong><small>{row.task.progress}% · {row.task.endDate}</small></span>
+              <ChevronRight size={14} />
+            </button>
           ))}
         </div>
 
@@ -124,21 +151,21 @@ export default function PlansCalendarView({ plans, zoomLevel, lang, onSelect, on
                 );
               })}
             </div>
-            {plans.map(plan => {
-              const start = parseDate(plan.startDate);
-              const end = parseDate(plan.endDate);
+            {rows.map(row => {
+              const start = parseDate(row.startDate);
+              const end = parseDate(row.endDate);
               const left = Math.max(0, diffDays(timelineStart, start) * pxPerDay);
               const width = Math.max(18, (diffDays(start, end) + 1) * pxPerDay);
               return (
-                <div className="plans-calendar-row" key={plan.id}>
+                <div className={`plans-calendar-row ${row.kind === 'task' ? 'portfolio-gantt-task-timeline-row' : 'portfolio-gantt-plan-timeline-row'}`} key={row.id}>
                   <button
-                    className="plans-calendar-bar"
-                    style={{ left, width, background: plan.color }}
-                    onClick={() => onSelect(plan.id)}
-                    title={`${plan.title}: ${plan.startDate} — ${plan.endDate}`}
+                    className={`plans-calendar-bar ${row.kind === 'task' ? 'portfolio-gantt-task-bar' : ''}`}
+                    style={{ left, width, background: row.color }}
+                    onClick={() => row.kind === 'plan' ? onSelect(row.plan.id) : onTaskSelect(row.plan.id, row.task.id)}
+                    title={`${row.title}: ${row.startDate} — ${row.endDate}`}
                   >
-                    <span style={{ width: `${plan.progress}%` }} />
-                    <strong>{plan.title}</strong>
+                    <span style={{ width: `${row.progress}%` }} />
+                    <strong>{row.title}</strong>
                   </button>
                 </div>
               );

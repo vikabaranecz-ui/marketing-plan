@@ -19,6 +19,7 @@ import KanbanBoard from './components/KanbanBoard';
 import WorkloadView from './components/WorkloadView';
 import TaskDetailsDrawer from './components/TaskDetailsDrawer';
 import PlansCalendarView, { type PlanCalendarItem } from './components/PlansCalendarView';
+import PortfolioBoard from './components/PortfolioBoard';
 import TodayPanel, { type TodayPlanGroup } from './components/TodayPanel';
 import MobileTaskList from './components/MobileTaskList';
 import MobilePlansView from './components/MobilePlansView';
@@ -91,6 +92,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
   
   // Layout views & search filters
   const [activeTab, setActiveTab] = useState<ActiveTab>('home');
+  const [portfolioView, setPortfolioView] = useState<'list' | 'board' | 'gantt'>('list');
   const [quickTaskTitle, setQuickTaskTitle] = useState('');
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('days');
   const [searchQuery, setSearchQuery] = useState('');
@@ -1775,6 +1777,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
         : 0,
       taskCount: activeTemplateTasks.length,
       color: activeTemplateTasks.find(task => task.color)?.color ?? '#6366f1',
+      tasks: normalizeTaskProgress(activeTemplateTasks),
     };
   });
   const now = new Date();
@@ -2670,30 +2673,60 @@ function App({ accountEmail, onSignOut }: AppProps) {
 
           {activeTab === 'plans' && (
             <div className="plans-workspace-hub">
-              <MobilePlansView
-                plans={planCalendarItems}
-                activePlanId={activeTemplateId}
-                lang={lang}
-                onAdd={handleCreateBlankPlan}
-                onArchive={handleArchivePlan}
-                onOpen={id => {
-                  handleTemplateSelect(id);
-                  setActiveTab('grid');
-                }}
-                onRename={handleRenamePlan}
-                onReminder={planId => openReminderCenter({ targetType: 'plan', planId })}
-              />
-              {!isMobile && (
-              <PlansCalendarView
-                plans={planCalendarItems}
-                zoomLevel={zoomLevel}
-                lang={lang}
-                onSelect={id => {
-                  handleTemplateSelect(id);
-                  setActiveTab('gantt');
-                }}
-                onArchive={handleArchivePlan}
-              />
+              <div className="portfolio-view-switch" role="group" aria-label={lang === 'uk' ? 'Вигляд усіх планів' : 'All plans view'}>
+                <button className={portfolioView === 'list' ? 'active' : ''} onClick={() => setPortfolioView('list')}><ListTodo size={16} />{lang === 'uk' ? 'Плани' : 'Plans'}</button>
+                <button className={portfolioView === 'board' ? 'active' : ''} onClick={() => setPortfolioView('board')}><Compass size={16} />Board</button>
+                <button className={portfolioView === 'gantt' ? 'active' : ''} onClick={() => setPortfolioView('gantt')}><CalendarRange size={16} />Gantt</button>
+              </div>
+
+              {portfolioView === 'gantt' && isMobile && (
+                <div className="portfolio-zoom-switch" role="group" aria-label={getTranslation(lang, 'zoomLabel')}>
+                  {(['days', 'weeks', 'months'] as ZoomLevel[]).map(level => (
+                    <button className={zoomLevel === level ? 'active' : ''} onClick={() => setZoomLevel(level)} key={level}>{getTranslation(lang, level as any)}</button>
+                  ))}
+                </div>
+              )}
+
+              {portfolioView === 'list' && (
+                <MobilePlansView
+                  plans={planCalendarItems}
+                  activePlanId={activeTemplateId}
+                  lang={lang}
+                  onAdd={handleCreateBlankPlan}
+                  onArchive={handleArchivePlan}
+                  onOpen={id => {
+                    handleTemplateSelect(id);
+                    setActiveTab('grid');
+                  }}
+                  onRename={handleRenamePlan}
+                  onReminder={planId => openReminderCenter({ targetType: 'plan', planId })}
+                />
+              )}
+
+              {portfolioView === 'board' && (
+                <PortfolioBoard
+                  plans={planCalendarItems}
+                  lang={lang}
+                  onOpenPlan={id => {
+                    handleTemplateSelect(id);
+                    setActiveTab('grid');
+                  }}
+                  onOpenTask={handleOpenGlobalTask}
+                />
+              )}
+
+              {portfolioView === 'gantt' && (
+                <PlansCalendarView
+                  plans={planCalendarItems}
+                  zoomLevel={zoomLevel}
+                  lang={lang}
+                  onSelect={id => {
+                    handleTemplateSelect(id);
+                    setActiveTab('gantt');
+                  }}
+                  onTaskSelect={handleOpenGlobalTask}
+                  onArchive={handleArchivePlan}
+                />
               )}
             </div>
           )}
