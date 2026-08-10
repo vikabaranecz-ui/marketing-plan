@@ -3,7 +3,7 @@ import {
   Megaphone, Globe, Compass, BookOpen, Calendar, Search, Plus, 
   Download, Upload, Languages, RotateCcw, FileText, AlertTriangle,
   Sun, Moon, Copy, Trash2, Info, X, ChevronDown, ChevronRight,
-  Menu, Eye, EyeOff, Table, Users, Cloud, CloudOff, LoaderCircle, Pencil,
+  Menu, Eye, EyeOff, Table, Users, Cloud, CloudOff, LoaderCircle, Pencil, ArrowLeft,
   Archive, CalendarRange, MoreHorizontal, SlidersHorizontal, LogOut, CircleUserRound,
   Share2, Lock, UserPlus, Shield, Smartphone, Bell, Lightbulb, Home, ListTodo, NotebookPen, Bot
 } from 'lucide-react';
@@ -195,9 +195,25 @@ function App({ accountEmail, onSignOut }: AppProps) {
   });
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [pushStatus, setPushStatus] = useState<PushNotificationStatus>('loading');
+  const [canNavigateBack, setCanNavigateBack] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pushSyncTimerRef = useRef<number | null>(null);
+  const tabHistoryRef = useRef<ActiveTab[]>([]);
+  const trackedTabRef = useRef<ActiveTab>(activeTab);
+  const backNavigationRef = useRef(false);
+
+  useEffect(() => {
+    if (trackedTabRef.current === activeTab) return;
+    if (backNavigationRef.current) {
+      backNavigationRef.current = false;
+    } else {
+      tabHistoryRef.current.push(trackedTabRef.current);
+      if (tabHistoryRef.current.length > 20) tabHistoryRef.current.shift();
+    }
+    trackedTabRef.current = activeTab;
+    setCanNavigateBack(tabHistoryRef.current.length > 0);
+  }, [activeTab]);
 
   useEffect(() => {
     cloudStatusRef.current = cloudStatus;
@@ -1925,6 +1941,19 @@ function App({ accountEmail, onSignOut }: AppProps) {
 
   const selectedTask = tasks.find(t => t.id === selectedTaskId) || null;
   const isPlanTaskView = activeTab === 'gantt' || activeTab === 'grid' || activeTab === 'kanban' || activeTab === 'workload';
+  const hasBackTarget = canNavigateBack || !!selectedTask;
+
+  const handleNavigateBack = () => {
+    if (selectedTask) {
+      setSelectedTaskId(null);
+      return;
+    }
+    const previousTab = tabHistoryRef.current.pop();
+    if (!previousTab) return;
+    backNavigationRef.current = true;
+    setCanNavigateBack(tabHistoryRef.current.length > 0);
+    setActiveTab(previousTab);
+  };
 
   useEffect(() => {
     if (!currentUserId || pushStatus !== 'enabled' || !cloudHydratedRef.current) return;
@@ -2243,11 +2272,11 @@ function App({ accountEmail, onSignOut }: AppProps) {
         </div>
         <header className="mobile-app-header">
           <button
-            className="mobile-header-button"
-            onClick={() => setIsMobilePlanSheetOpen(true)}
-            aria-label={lang === 'uk' ? 'Відкрити список планів' : 'Open plans list'}
+            className={`mobile-header-button ${hasBackTarget ? 'mobile-back-button' : ''}`}
+            onClick={hasBackTarget ? handleNavigateBack : () => setIsMobilePlanSheetOpen(true)}
+            aria-label={hasBackTarget ? (lang === 'uk' ? 'Назад' : 'Back') : (lang === 'uk' ? 'Відкрити список планів' : 'Open plans list')}
           >
-            <img className="mobile-brand-icon" src="/icons/marketing-plan-192.png" alt="" />
+            {hasBackTarget ? <ArrowLeft size={21} /> : <img className="mobile-brand-icon" src="/icons/marketing-plan-192.png" alt="" />}
           </button>
           <button className="mobile-current-plan" onClick={() => setIsMobilePlanSheetOpen(true)}>
             <small>
@@ -2328,6 +2357,11 @@ function App({ accountEmail, onSignOut }: AppProps) {
 
         <header className="header">
           <div className="header-left">
+            {hasBackTarget && (
+              <button className="btn-icon header-back-button" onClick={handleNavigateBack} title={lang === 'uk' ? 'Назад' : 'Back'} aria-label={lang === 'uk' ? 'Назад' : 'Back'}>
+                <ArrowLeft size={17} /><span>{lang === 'uk' ? 'Назад' : 'Back'}</span>
+              </button>
+            )}
             <button
               className="btn-icon header-project-toggle"
               onClick={() => setShowMainSidebar(!showMainSidebar)}

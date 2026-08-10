@@ -6392,6 +6392,31 @@ textarea:focus-visible {
   }
 }
 
+/* In-app back navigation */
+.header-back-button {
+  width: auto;
+  min-width: 0;
+  padding: 0 13px 0 10px;
+  gap: 7px;
+  border-radius: 999px;
+  color: var(--text-primary);
+  font-family: var(--font-typewriter);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.header-back-button > span {
+  display: inline;
+}
+
+.mobile-back-button {
+  color: var(--text-primary);
+}
+
+.mobile-back-button svg {
+  filter: drop-shadow(0 3px 5px rgba(15, 18, 23, 0.18));
+}
+
 @media (max-width: 380px) {
   .mobile-app-header {
     grid-template-columns: 42px minmax(0, 1fr) 24px 42px;
