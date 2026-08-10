@@ -6058,6 +6058,253 @@ textarea:focus-visible {
   }
 }
 
+/* Authoritative button sizing for every viewport. */
+button,
+.btn,
+.btn-icon,
+.mobile-header-button,
+.mobile-primary-action,
+.mobile-plan-actions button,
+.mobile-action-grid button {
+  min-width: 0;
+  max-width: 100%;
+}
+
+button > svg,
+.btn > svg,
+.btn-icon > svg,
+button > span > svg {
+  flex: 0 0 auto;
+}
+
+button > span,
+button > strong,
+button > small,
+.btn > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.btn,
+.mobile-primary-action,
+.mobile-plan-actions button,
+.mobile-action-grid button,
+.dialog-footer button,
+.drawer-footer button,
+.reminder-alert-actions button,
+.idea-card-actions button {
+  white-space: normal;
+  line-height: 1.2;
+}
+
+.mobile-action-grid,
+.mobile-plan-actions,
+.dialog-footer,
+.reminder-alert-actions,
+.idea-card-actions,
+.handwriting-actions {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.mobile-action-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(118px, 100%), 1fr));
+}
+
+.mobile-action-grid button {
+  padding: 10px 8px;
+}
+
+.header,
+.header-left,
+.header-right,
+.controls-group,
+.gantt-controls {
+  min-width: 0;
+}
+
+.header-right {
+  flex-wrap: wrap;
+}
+
+.header-right > *,
+.gantt-controls > * {
+  min-width: 0;
+}
+
+.quick-task-entry {
+  width: clamp(280px, 42vw, 520px);
+  max-width: 100%;
+}
+
+.quick-task-entry button {
+  flex: 0 0 auto;
+}
+
+.drawer-footer,
+.dialog-footer {
+  max-width: 100%;
+}
+
+@media (min-width: 1025px) and (max-width: 1240px) {
+  .quick-task-entry {
+    width: min(100%, 420px);
+  }
+
+  .header-right {
+    flex-basis: 100%;
+    justify-content: flex-start;
+  }
+
+  .search-container {
+    width: min(360px, 100%);
+    flex: 1 1 240px;
+  }
+
+  .header-filter-select {
+    flex: 1 1 150px;
+  }
+
+  .mobile-actions-sheet .mobile-action-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1024px) {
+  button,
+  .btn,
+  .mobile-primary-action,
+  .mobile-plan-actions button,
+  .mobile-action-grid button,
+  .dialog-footer button,
+  .reminder-alert-actions button {
+    min-height: 44px;
+  }
+
+  .btn-icon,
+  .mobile-header-button {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    padding: 0;
+  }
+
+  .mobile-action-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mobile-action-grid button {
+    min-height: 64px;
+  }
+
+  .mobile-plan-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .mobile-plan-actions button {
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 7px 4px;
+    font-size: clamp(0.62rem, 2vw, 0.72rem);
+  }
+
+  .mobile-sheet-header > .btn-icon,
+  .drawer-header .btn-icon {
+    flex: 0 0 44px;
+  }
+
+  .dialog-footer,
+  .reminder-alert-actions,
+  .handwriting-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+    width: 100%;
+  }
+
+  .dialog-footer .btn,
+  .reminder-alert-actions .btn,
+  .handwriting-actions .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .mobile-action-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .mobile-action-grid button {
+    min-height: 60px;
+    padding: 8px 5px;
+    font-size: 0.66rem;
+  }
+
+  .mobile-screen-intro {
+    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mobile-primary-action,
+  .simple-page-header .btn,
+  .plans-calendar-intro .btn {
+    width: 100%;
+  }
+
+  .drawer-footer {
+    grid-template-columns: minmax(0, 1fr) repeat(3, 42px);
+    gap: 5px;
+    padding-inline: 7px;
+  }
+
+  .drawer-footer .btn-icon,
+  .drawer-footer .btn:not(:first-child) {
+    width: 42px;
+    min-width: 42px;
+    height: 44px;
+  }
+}
+
+@media (max-width: 320px) {
+  .mobile-bottom-nav {
+    padding-inline: 2px;
+  }
+
+  .mobile-bottom-nav button {
+    padding-inline: 1px;
+  }
+
+  .mobile-bottom-nav button span,
+  .mobile-bottom-nav .mobile-quick-add small {
+    font-size: 0.48rem;
+  }
+
+  .mobile-action-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mobile-plan-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mobile-plan-actions button + button {
+    border-top: 1px solid var(--border-color);
+    border-left: 0;
+  }
+
+  .drawer-footer {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .drawer-footer .btn,
+  .drawer-footer .btn-icon,
+  .drawer-footer .btn:not(:first-child) {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
 /* Connected workspace navigation */
 .legacy-plan-sidebar,
 .desktop-view-menu,
