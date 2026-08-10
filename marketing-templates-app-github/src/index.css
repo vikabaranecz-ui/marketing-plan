@@ -10833,6 +10833,61 @@ body {
   }
 }
 
+/* Today is visible at every Gantt level and zoom. */
+.timeline-today-badge {
+  margin-top: 3px;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-family: var(--font-typewriter);
+  font-size: 0.52rem;
+  font-weight: 750;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.plans-calendar-timeline { position: relative; }
+.plans-calendar-header { position: relative; z-index: 3; }
+.plans-calendar-header-cell { position: relative; flex-direction: column; gap: 2px; }
+.plans-calendar-header-cell.today {
+  background: color-mix(in srgb, var(--primary) 14%, var(--bg-hover));
+  color: var(--primary);
+}
+.plans-calendar-header-cell.today > strong {
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-family: var(--font-typewriter);
+  font-size: 0.51rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.plans-calendar-today-line {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--danger);
+  pointer-events: none;
+}
+.plans-calendar-today-line > span {
+  position: absolute;
+  top: 54px;
+  display: inline-flex;
+  transform: translateX(-50%);
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-family: var(--font-typewriter);
+  font-size: 0.56rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
 /* Note editor must win over the older responsive dashboard rules above. */
 .notebook-row > button:not(.notebook-row-main) { opacity: 1; border-radius: 9px; }
 .note-list-row {

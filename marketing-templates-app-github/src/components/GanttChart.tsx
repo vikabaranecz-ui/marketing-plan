@@ -277,17 +277,19 @@ export default function GanttChart({
         const weekStartDate = addDays(timelineStart, i * 7);
         const monthIndex = weekStartDate.getMonth();
         const dayNum = weekStartDate.getDate();
+        const isToday = i === Math.floor(getDaysBetween(timelineStart, todayDate) / 7);
         
         cells.push(
           <div 
             key={`h-week-${i}`} 
-            className="timeline-header-cell"
+            className={`timeline-header-cell ${isToday ? 'today' : ''}`}
             style={{ width: `${cellWidth}px` }}
           >
             <span className="top-lbl">{getMonthName(monthIndex, lang)}</span>
             <span className="bottom-lbl">
               {lang === 'uk' ? 'Тиж.' : 'W'}{i + 1} ({dayNum})
             </span>
+            {isToday && <span className="timeline-today-badge">{lang === 'uk' ? 'Сьогодні' : 'Today'} · {todayDate.getDate()}</span>}
           </div>
         );
       }
@@ -297,15 +299,17 @@ export default function GanttChart({
         const monthStartDate = addDays(timelineStart, i * 30);
         const monthIndex = monthStartDate.getMonth();
         const year = monthStartDate.getFullYear();
+        const isToday = i === Math.floor(getDaysBetween(timelineStart, todayDate) / 30);
         
         cells.push(
           <div 
             key={`h-month-${i}`} 
-            className="timeline-header-cell"
+            className={`timeline-header-cell ${isToday ? 'today' : ''}`}
             style={{ width: `${cellWidth}px` }}
           >
             <span className="top-lbl">{year}</span>
             <span className="bottom-lbl">{getMonthName(monthIndex, lang)}</span>
+            {isToday && <span className="timeline-today-badge">{lang === 'uk' ? 'Сьогодні' : 'Today'} · {todayDate.getDate()}</span>}
           </div>
         );
       }

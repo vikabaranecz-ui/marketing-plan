@@ -72,7 +72,9 @@ export default function PlansCalendarView({ plans, zoomLevel, lang, onSelect, on
     { kind: 'plan' as const, plan, id: `plan_${plan.id}`, title: plan.title, startDate: plan.startDate, endDate: plan.endDate, progress: plan.progress, color: plan.color },
     ...(!collapsedPlanIds.has(plan.id) ? plan.tasks.map(task => ({ kind: 'task' as const, plan, task, id: `task_${plan.id}_${task.id}`, title: task.title, startDate: task.startDate, endDate: task.endDate, progress: task.progress, color: task.color ?? plan.color })) : []),
   ]);
-  const planDates = rows.flatMap(row => [parseDate(row.startDate), parseDate(row.endDate)]);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const planDates = [...rows.flatMap(row => [parseDate(row.startDate), parseDate(row.endDate)]), today];
   const earliest = new Date(Math.min(...planDates.map(date => date.getTime())));
   const latest = new Date(Math.max(...planDates.map(date => date.getTime())));
   const timelineStart = zoomLevel === 'months'
@@ -89,6 +91,7 @@ export default function PlansCalendarView({ plans, zoomLevel, lang, onSelect, on
   const unitCount = Math.ceil(totalDays / unitDays);
   const timelineWidth = unitCount * cellWidth;
   const pxPerDay = timelineWidth / totalDays;
+  const todayOffset = Math.max(0, diffDays(timelineStart, today) * pxPerDay + (pxPerDay / 2));
   const formatter = new Intl.DateTimeFormat(lang === 'uk' ? 'uk-UA' : 'en-US', {
     day: zoomLevel === 'months' ? undefined : 'numeric',
     month: zoomLevel === 'days' ? 'short' : 'short',
@@ -144,12 +147,18 @@ export default function PlansCalendarView({ plans, zoomLevel, lang, onSelect, on
             <div className="plans-calendar-header">
               {Array.from({ length: unitCount }, (_, index) => {
                 const date = addDays(timelineStart, index * unitDays);
+                const unitEnd = addDays(date, unitDays - 1);
+                const containsToday = today >= date && today <= unitEnd;
                 return (
-                  <div className="plans-calendar-header-cell" style={{ width: cellWidth }} key={date.toISOString()}>
-                    {formatter.format(date)}
+                  <div className={`plans-calendar-header-cell ${containsToday ? 'today' : ''}`} style={{ width: cellWidth }} key={date.toISOString()}>
+                    <span>{formatter.format(date)}</span>
+                    {containsToday && <strong>{lang === 'uk' ? 'Сьогодні' : 'Today'} · {today.getDate()}</strong>}
                   </div>
                 );
               })}
+            </div>
+            <div className="plans-calendar-today-line" style={{ left: todayOffset }}>
+              <span>{lang === 'uk' ? 'Сьогодні' : 'Today'} · {today.toLocaleDateString(lang === 'uk' ? 'uk-UA' : 'en-US', { day: 'numeric', month: 'short' })}</span>
             </div>
             {rows.map(row => {
               const start = parseDate(row.startDate);
