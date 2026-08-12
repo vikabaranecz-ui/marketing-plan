@@ -10927,10 +10927,27 @@ body {
 .note-list-row > button.danger,
 .note-editor-actions .danger { color: var(--danger); }
 .note-editor-heading { align-items: center; }
+.note-editor-heading {
+  position: sticky;
+  z-index: 20;
+  top: 10px;
+  margin: -10px -12px 0;
+  padding: 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--glass-surface-strong) 94%, transparent);
+  box-shadow: 0 12px 28px rgba(26, 29, 37, 0.14);
+  -webkit-backdrop-filter: blur(28px) saturate(130%);
+  backdrop-filter: blur(28px) saturate(130%);
+}
 .note-editor-title { display: grid; min-width: 0; flex: 1; gap: 6px; }
 .note-editor-title > small { color: var(--text-muted); font-family: var(--font-typewriter); font-size: 0.62rem; }
 .note-editor-actions { display: flex; flex: 0 0 auto; gap: 7px; }
 .note-editor-actions .btn { min-height: 42px; padding-inline: 13px; }
+.note-editor-actions .btn {
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 6px 14px rgba(26, 29, 37, 0.1);
+}
 .note-attachment-row { grid-template-columns: 22px minmax(0, 1fr) auto auto auto; }
 .knowledge-notebooks-layout { min-height: min(720px, calc(100dvh - 245px)); }
 .knowledge-editor {
@@ -10966,7 +10983,13 @@ body {
 }
 
 @media (max-width: 720px) {
-  .note-editor-heading { align-items: stretch; }
+  .note-editor-heading {
+    top: max(8px, env(safe-area-inset-top));
+    margin: -7px -5px 0;
+    padding: 10px;
+    align-items: stretch;
+    border-radius: 16px;
+  }
   .note-editor-title > small { align-self: flex-end; }
   .note-editor-actions { display: grid; grid-template-columns: 1fr 1fr; }
   .note-editor-actions .btn { width: 100%; }
@@ -10987,4 +11010,15 @@ body {
     -webkit-backdrop-filter: blur(22px);
     backdrop-filter: blur(22px);
   }
+}
+
+@media (max-width: 390px) {
+  .note-editor-heading .knowledge-title-input { font-size: 1.45rem; }
+  .note-editor-actions .btn { min-height: 46px; padding-inline: 8px; }
+}
+
+@media (min-width: 721px) and (max-width: 1180px) {
+  .note-editor-heading { align-items: stretch; flex-direction: column; }
+  .note-editor-actions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .note-editor-actions .btn { width: 100%; }
 }
