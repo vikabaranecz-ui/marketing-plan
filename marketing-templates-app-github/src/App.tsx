@@ -1011,9 +1011,9 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const handleUploadDocument = async (
     file: File,
     link?: Pick<WorkspaceDocument, 'noteId' | 'notebookId' | 'planId' | 'taskId'>,
-  ) => {
-    if (!currentUserId) return showToast(lang === 'uk' ? 'Спочатку увійдіть в акаунт' : 'Sign in first', 'error');
-    if (file.size > 20 * 1024 * 1024) return showToast(lang === 'uk' ? 'Файл має бути до 20 МБ' : 'File must be under 20 MB', 'error');
+  ): Promise<WorkspaceDocument | null> => {
+    if (!currentUserId) { showToast(lang === 'uk' ? 'Спочатку увійдіть в акаунт' : 'Sign in first', 'error'); return null; }
+    if (file.size > 20 * 1024 * 1024) { showToast(lang === 'uk' ? 'Файл має бути до 20 МБ' : 'File must be under 20 MB', 'error'); return null; }
     setIsDocumentUploading(true);
     try {
       const storagePath = await uploadWorkspaceDocument(currentUserId, file);
@@ -1031,10 +1031,12 @@ function App({ accountEmail, onSignOut }: AppProps) {
       };
       setDocuments(previous => [document, ...previous]);
       showToast(lang === 'uk' ? 'Документ збережено' : 'Document saved');
+      return document;
     } catch (error) {
       console.error('Document upload failed', error);
       const reason = error instanceof Error ? error.message : '';
       showToast(`${lang === 'uk' ? 'Не вдалося завантажити файл' : 'File upload failed'}${reason ? `: ${reason}` : ''}`, 'error');
+      return null;
     } finally {
       setIsDocumentUploading(false);
     }
@@ -2782,7 +2784,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
               onCreateNotebook={handleCreateNotebook}
               onUpdateNotebook={handleUpdateNotebook}
               onDeleteNotebook={handleDeleteNotebook}
-              onUpload={(file, link) => { void handleUploadDocument(file, link); }}
+              onUpload={handleUploadDocument}
               onOpenDocument={document => { void handleOpenDocument(document); }}
               onLoadDocument={handleLoadDocument}
               onSaveExcelDocument={handleSaveExcelDocument}

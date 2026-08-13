@@ -27,7 +27,7 @@ interface KnowledgeHubProps {
   onCreateNotebook: (name: string) => WorkspaceNotebook;
   onUpdateNotebook: (notebook: WorkspaceNotebook) => void;
   onDeleteNotebook: (notebookId: string) => void;
-  onUpload: (file: File, link: DocumentLink) => void;
+  onUpload: (file: File, link: DocumentLink) => Promise<WorkspaceDocument | null>;
   onOpenDocument: (document: WorkspaceDocument) => void;
   onLoadDocument: (document: WorkspaceDocument) => Promise<ArrayBuffer>;
   onSaveExcelDocument: (document: WorkspaceDocument, file: File) => Promise<void>;
@@ -131,7 +131,11 @@ export default function KnowledgeHub({
     planId: draft?.planId,
     taskId: draft?.taskId,
   });
-  const uploadFile = (file?: File) => { if (file && draft) onUpload(file, documentLink()); };
+  const uploadFile = async (file?: File) => {
+    if (!file || !draft) return;
+    const uploaded = await onUpload(file, documentLink());
+    if (uploaded && isExcelDocument(uploaded)) setExcelDocument(uploaded);
+  };
   const attachExisting = (document: WorkspaceDocument) => {
     if (!draft) return;
     onLinkDocument(document.id, documentLink());
@@ -229,8 +233,8 @@ export default function KnowledgeHub({
             <button onClick={() => ocrPhotoRef.current?.click()} disabled={ocrProgress !== null} title={lang === 'uk' ? 'Сфотографувати й розпізнати рукопис' : 'Photograph and recognize handwriting'}><ScanText size={17} /><span>{lang === 'uk' ? 'Сканувати' : 'Scan'}</span></button>
             <button onClick={() => ocrFileRef.current?.click()} disabled={ocrProgress !== null} title={lang === 'uk' ? 'Розпізнати рукопис із фото' : 'Recognize handwriting from photo'}><ScanText size={17} /><span>{lang === 'uk' ? 'Текст із фото' : 'Text from photo'}</span></button>
           </div>
-          <input ref={photoRef} hidden type="file" accept="image/*" capture="environment" onChange={event => { uploadFile(event.target.files?.[0]); event.target.value = ''; }} />
-          <input ref={fileRef} hidden type="file" accept={`application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif,${EXCEL_FILE_TYPES}`} onChange={event => { uploadFile(event.target.files?.[0]); event.target.value = ''; }} />
+          <input ref={photoRef} hidden type="file" accept="image/*" capture="environment" onChange={event => { void uploadFile(event.target.files?.[0]); event.target.value = ''; }} />
+          <input ref={fileRef} hidden type="file" accept={`application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif,${EXCEL_FILE_TYPES}`} onChange={event => { void uploadFile(event.target.files?.[0]); event.target.value = ''; }} />
           <input ref={ocrPhotoRef} hidden type="file" accept="image/*" capture="environment" onChange={event => { void scanHandwriting(event.target.files?.[0]); event.target.value = ''; }} />
           <input ref={ocrFileRef} hidden type="file" accept="image/*" onChange={event => { void scanHandwriting(event.target.files?.[0]); event.target.value = ''; }} />
           {ocrProgress !== null && <div className="note-ocr-status"><span>{lang === 'uk' ? `Розпізнаю рукопис… ${ocrProgress}%` : `Recognizing handwriting… ${ocrProgress}%`}</span><progress max="100" value={ocrProgress} /></div>}
@@ -243,7 +247,7 @@ export default function KnowledgeHub({
 
           {(attachments.length > 0 || unfiledDocuments.length > 0) && <section className="note-attachments">
             <header><span><Paperclip size={16} />{lang === 'uk' ? 'Вкладення нотатки' : 'Note attachments'}</span><strong>{attachments.length}</strong></header>
-            {attachments.map(document => <div className={`note-attachment-row ${isExcelDocument(document) ? 'excel' : ''}`} key={document.id}>{isExcelDocument(document) ? <FileSpreadsheet size={18} /> : <FileText size={18} />}<span><strong>{document.name}</strong><small>{isExcelDocument(document) ? 'Excel · ' : ''}{(document.size / 1024 / 1024).toFixed(1)} MB</small></span><button onClick={() => isExcelDocument(document) ? setExcelDocument(document) : onOpenDocument(document)} aria-label={lang === 'uk' ? 'Відкрити' : 'Open'} title={isExcelDocument(document) ? (lang === 'uk' ? 'Відкрити й редагувати в додатку' : 'Open and edit in app') : (lang === 'uk' ? 'Відкрити' : 'Open')}><ExternalLink size={16} /></button><button onClick={() => renameDocument(document)} aria-label={lang === 'uk' ? 'Перейменувати' : 'Rename'} title={lang === 'uk' ? 'Редагувати назву' : 'Edit name'}><Pencil size={16} /></button><button className="danger" onClick={() => onDeleteDocument(document)} aria-label={lang === 'uk' ? 'Видалити' : 'Delete'} title={lang === 'uk' ? 'Видалити' : 'Delete'}><Trash2 size={16} /></button></div>)}
+            {attachments.map(document => <div className={`note-attachment-row ${isExcelDocument(document) ? 'excel' : ''}`} key={document.id}>{isExcelDocument(document) ? <FileSpreadsheet size={18} /> : <FileText size={18} />}<span><strong>{document.name}</strong><small>{isExcelDocument(document) ? (lang === 'uk' ? 'Excel · редагується в додатку' : 'Excel · editable in app') : ''}{isExcelDocument(document) ? ' · ' : ''}{(document.size / 1024 / 1024).toFixed(1)} MB</small></span><button className={isExcelDocument(document) ? 'excel-edit-button' : ''} onClick={() => isExcelDocument(document) ? setExcelDocument(document) : onOpenDocument(document)} aria-label={lang === 'uk' ? 'Відкрити' : 'Open'} title={isExcelDocument(document) ? (lang === 'uk' ? 'Відкрити й редагувати в додатку' : 'Open and edit in app') : (lang === 'uk' ? 'Відкрити' : 'Open')}>{isExcelDocument(document) ? <><Pencil size={15} /><span>{lang === 'uk' ? 'Редагувати' : 'Edit'}</span></> : <ExternalLink size={16} />}</button><button onClick={() => renameDocument(document)} aria-label={lang === 'uk' ? 'Перейменувати' : 'Rename'} title={lang === 'uk' ? 'Редагувати назву' : 'Edit name'}><Pencil size={16} /></button><button className="danger" onClick={() => onDeleteDocument(document)} aria-label={lang === 'uk' ? 'Видалити' : 'Delete'} title={lang === 'uk' ? 'Видалити' : 'Delete'}><Trash2 size={16} /></button></div>)}
             {unfiledDocuments.length > 0 && <details><summary>{lang === 'uk' ? `Раніше завантажені файли (${unfiledDocuments.length})` : `Previously uploaded files (${unfiledDocuments.length})`}</summary>{unfiledDocuments.map(document => <div className={`note-attachment-row ${isExcelDocument(document) ? 'excel' : ''}`} key={document.id}>{isExcelDocument(document) ? <FileSpreadsheet size={18} /> : <FileText size={18} />}<span><strong>{document.name}</strong><small>{isExcelDocument(document) ? 'Excel' : (lang === 'uk' ? 'Ще не в нотатці' : 'Not in a note yet')}</small></span><button onClick={() => attachExisting(document)}>{lang === 'uk' ? 'Додати' : 'Attach'}</button><button onClick={() => renameDocument(document)} aria-label={lang === 'uk' ? 'Перейменувати' : 'Rename'} title={lang === 'uk' ? 'Редагувати назву' : 'Edit name'}><Pencil size={16} /></button><button className="danger" onClick={() => onDeleteDocument(document)} aria-label={lang === 'uk' ? 'Видалити' : 'Delete'} title={lang === 'uk' ? 'Видалити' : 'Delete'}><Trash2 size={16} /></button></div>)}</details>}
           </section>}
         </article> : <div className="simple-empty"><NotebookPen /><strong>{lang === 'uk' ? 'Створіть першу нотатку' : 'Create your first note'}</strong></div>}

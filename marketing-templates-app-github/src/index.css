@@ -10949,6 +10949,19 @@ body {
   box-shadow: 0 6px 14px rgba(26, 29, 37, 0.1);
 }
 .note-attachment-row { grid-template-columns: 22px minmax(0, 1fr) auto auto auto; }
+.note-attachment-row > .excel-edit-button {
+  display: inline-flex;
+  width: auto;
+  min-width: 118px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding-inline: 12px;
+  background: rgba(22, 131, 75, 0.12);
+  color: #16834b;
+  font-size: 0.7rem;
+  font-weight: 750;
+}
 .knowledge-notebooks-layout { min-height: min(720px, calc(100dvh - 245px)); }
 .knowledge-editor {
   gap: 14px;
@@ -10994,6 +11007,7 @@ body {
   .note-editor-actions { display: grid; grid-template-columns: 1fr 1fr; }
   .note-editor-actions .btn { width: 100%; }
   .note-attachment-row { grid-template-columns: 20px minmax(0, 1fr) 42px 42px 42px; gap: 5px; }
+  .note-attachment-row > .excel-edit-button { grid-column: 2 / -1; grid-row: 2; width: 100%; min-width: 0; min-height: 42px; }
   .knowledge-notebooks-layout { min-height: 0; }
   .knowledge-editor { gap: 11px; margin-top: 12px; padding: 15px 12px; border-radius: 22px; }
   .note-input-tools { grid-template-columns: repeat(5, minmax(44px, 1fr)); gap: 5px; }

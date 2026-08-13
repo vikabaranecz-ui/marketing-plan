@@ -119,7 +119,7 @@ export default function ExcelEditorDialog({ document: workspaceDocument, lang, o
               <thead><tr><th />{Array.from({ length: dimensions.columns }, (_, column) => <th key={column}>{columnLabel(column)}</th>)}</tr></thead>
               <tbody>{Array.from({ length: dimensions.rows }, (_, rowIndex) => <tr key={rowIndex}><th>{rowIndex + 1}</th>{Array.from({ length: dimensions.columns }, (_, columnIndex) => {
                 const cell = sheet.getCell(rowIndex + 1, columnIndex + 1);
-                return <td key={columnIndex}><input defaultValue={displayValue(cell.value)} onBlur={event => { cell.value = parseValue(event.target.value); setRevision(value => value + 1); }} aria-label={`${rowIndex + 1}:${columnIndex + 1}`} /></td>;
+                return <td key={columnIndex}><input defaultValue={displayValue(cell.value)} onChange={event => { cell.value = parseValue(event.target.value); }} onBlur={() => setRevision(value => value + 1)} aria-label={`${rowIndex + 1}:${columnIndex + 1}`} /></td>;
               })}</tr>)}</tbody>
             </table>
           </div>
