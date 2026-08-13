@@ -7,6 +7,7 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { recognizeHandwriting } from '../lib/handwritingOcr';
 import type { Language, WorkspaceDocument, WorkspaceNote, WorkspaceNotebook } from '../types';
 import HandwritingInputDialog from './HandwritingInputDialog';
+import ExcelEditorDialog from './ExcelEditorDialog';
 
 interface PlanOption { id: string; title: string }
 interface TaskOption { id: string; title: string; planId: string; planTitle: string }
@@ -28,6 +29,8 @@ interface KnowledgeHubProps {
   onDeleteNotebook: (notebookId: string) => void;
   onUpload: (file: File, link: DocumentLink) => void;
   onOpenDocument: (document: WorkspaceDocument) => void;
+  onLoadDocument: (document: WorkspaceDocument) => Promise<ArrayBuffer>;
+  onSaveExcelDocument: (document: WorkspaceDocument, file: File) => Promise<void>;
   onRenameDocument: (documentId: string, name: string) => void;
   onDeleteDocument: (document: WorkspaceDocument) => void;
   onLinkDocument: (documentId: string, link: Partial<DocumentLink>) => void;
@@ -44,7 +47,7 @@ const isExcelDocument = (document: WorkspaceDocument) =>
 export default function KnowledgeHub({
   lang, notes, notebooks, documents, plans, tasks, isUploading,
   onCreateNote, onSaveNote, onDeleteNote, onCreateNotebook, onUpdateNotebook,
-  onDeleteNotebook, onUpload, onOpenDocument, onRenameDocument, onDeleteDocument, onLinkDocument,
+  onDeleteNotebook, onUpload, onOpenDocument, onLoadDocument, onSaveExcelDocument, onRenameDocument, onDeleteDocument, onLinkDocument,
 }: KnowledgeHubProps) {
   const [query, setQuery] = useState('');
   const [selectedNoteId, setSelectedNoteId] = useState(notes[0]?.id ?? '');
@@ -56,6 +59,7 @@ export default function KnowledgeHub({
   const [handwritingOpen, setHandwritingOpen] = useState(false);
   const [ocrProgress, setOcrProgress] = useState<number | null>(null);
   const [ocrError, setOcrError] = useState('');
+  const [excelDocument, setExcelDocument] = useState<WorkspaceDocument | null>(null);
   const photoRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const ocrPhotoRef = useRef<HTMLInputElement>(null);
@@ -239,7 +243,7 @@ export default function KnowledgeHub({
 
           {(attachments.length > 0 || unfiledDocuments.length > 0) && <section className="note-attachments">
             <header><span><Paperclip size={16} />{lang === 'uk' ? 'Вкладення нотатки' : 'Note attachments'}</span><strong>{attachments.length}</strong></header>
-            {attachments.map(document => <div className={`note-attachment-row ${isExcelDocument(document) ? 'excel' : ''}`} key={document.id}>{isExcelDocument(document) ? <FileSpreadsheet size={18} /> : <FileText size={18} />}<span><strong>{document.name}</strong><small>{isExcelDocument(document) ? 'Excel · ' : ''}{(document.size / 1024 / 1024).toFixed(1)} MB</small></span><button onClick={() => onOpenDocument(document)} aria-label={lang === 'uk' ? 'Відкрити' : 'Open'} title={lang === 'uk' ? 'Відкрити' : 'Open'}><ExternalLink size={16} /></button><button onClick={() => renameDocument(document)} aria-label={lang === 'uk' ? 'Перейменувати' : 'Rename'} title={lang === 'uk' ? 'Редагувати назву' : 'Edit name'}><Pencil size={16} /></button><button className="danger" onClick={() => onDeleteDocument(document)} aria-label={lang === 'uk' ? 'Видалити' : 'Delete'} title={lang === 'uk' ? 'Видалити' : 'Delete'}><Trash2 size={16} /></button></div>)}
+            {attachments.map(document => <div className={`note-attachment-row ${isExcelDocument(document) ? 'excel' : ''}`} key={document.id}>{isExcelDocument(document) ? <FileSpreadsheet size={18} /> : <FileText size={18} />}<span><strong>{document.name}</strong><small>{isExcelDocument(document) ? 'Excel · ' : ''}{(document.size / 1024 / 1024).toFixed(1)} MB</small></span><button onClick={() => isExcelDocument(document) ? setExcelDocument(document) : onOpenDocument(document)} aria-label={lang === 'uk' ? 'Відкрити' : 'Open'} title={isExcelDocument(document) ? (lang === 'uk' ? 'Відкрити й редагувати в додатку' : 'Open and edit in app') : (lang === 'uk' ? 'Відкрити' : 'Open')}><ExternalLink size={16} /></button><button onClick={() => renameDocument(document)} aria-label={lang === 'uk' ? 'Перейменувати' : 'Rename'} title={lang === 'uk' ? 'Редагувати назву' : 'Edit name'}><Pencil size={16} /></button><button className="danger" onClick={() => onDeleteDocument(document)} aria-label={lang === 'uk' ? 'Видалити' : 'Delete'} title={lang === 'uk' ? 'Видалити' : 'Delete'}><Trash2 size={16} /></button></div>)}
             {unfiledDocuments.length > 0 && <details><summary>{lang === 'uk' ? `Раніше завантажені файли (${unfiledDocuments.length})` : `Previously uploaded files (${unfiledDocuments.length})`}</summary>{unfiledDocuments.map(document => <div className={`note-attachment-row ${isExcelDocument(document) ? 'excel' : ''}`} key={document.id}>{isExcelDocument(document) ? <FileSpreadsheet size={18} /> : <FileText size={18} />}<span><strong>{document.name}</strong><small>{isExcelDocument(document) ? 'Excel' : (lang === 'uk' ? 'Ще не в нотатці' : 'Not in a note yet')}</small></span><button onClick={() => attachExisting(document)}>{lang === 'uk' ? 'Додати' : 'Attach'}</button><button onClick={() => renameDocument(document)} aria-label={lang === 'uk' ? 'Перейменувати' : 'Rename'} title={lang === 'uk' ? 'Редагувати назву' : 'Edit name'}><Pencil size={16} /></button><button className="danger" onClick={() => onDeleteDocument(document)} aria-label={lang === 'uk' ? 'Видалити' : 'Delete'} title={lang === 'uk' ? 'Видалити' : 'Delete'}><Trash2 size={16} /></button></div>)}</details>}
           </section>}
         </article> : <div className="simple-empty"><NotebookPen /><strong>{lang === 'uk' ? 'Створіть першу нотатку' : 'Create your first note'}</strong></div>}
@@ -254,6 +258,7 @@ export default function KnowledgeHub({
         onApply={content => setDraft({ ...draft, content })}
         onClose={() => setHandwritingOpen(false)}
       />}
+      {excelDocument && <ExcelEditorDialog document={excelDocument} lang={lang} onLoad={onLoadDocument} onSave={onSaveExcelDocument} onClose={() => setExcelDocument(null)} />}
     </section>
   );
 }

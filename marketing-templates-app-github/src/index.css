@@ -11022,3 +11022,81 @@ body {
   .note-editor-actions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
   .note-editor-actions .btn { width: 100%; }
 }
+
+/* In-app Excel viewer and editor */
+.excel-editor-backdrop {
+  position: fixed;
+  z-index: 1600;
+  inset: 0;
+  display: grid;
+  padding: clamp(8px, 2vw, 24px);
+  background: rgba(15, 17, 22, 0.56);
+  place-items: center;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.excel-editor-dialog {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  width: min(1180px, 100%);
+  height: min(820px, calc(100dvh - 20px));
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.34);
+}
+
+.excel-editor-dialog > header,
+.excel-editor-dialog > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--glass-surface-strong);
+}
+
+.excel-editor-dialog > header > div,
+.excel-editor-dialog > header > div > span { display: flex; min-width: 0; }
+.excel-editor-dialog > header > div { align-items: center; gap: 10px; }
+.excel-editor-dialog > header > div > svg { color: #16834b; }
+.excel-editor-dialog > header > div > span { flex-direction: column; }
+.excel-editor-dialog > header strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.excel-editor-dialog > header small,
+.excel-editor-dialog > footer > span { color: var(--text-muted); font-size: 0.7rem; }
+.excel-editor-dialog > header > button { display: grid; min-width: 44px; height: 44px; border-radius: 13px; place-items: center; }
+.excel-editor-dialog > footer { border-top: 1px solid var(--border-color); border-bottom: 0; }
+
+.excel-sheet-tabs {
+  display: flex;
+  gap: 5px;
+  padding: 8px 12px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-hover);
+}
+.excel-sheet-tabs button { min-height: 38px; padding: 0 13px; border-radius: 10px; white-space: nowrap; }
+.excel-sheet-tabs button.active { background: #16834b; color: #fff; }
+
+.excel-grid-scroll { min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.excel-grid { border-collapse: separate; border-spacing: 0; background: #fff; color: #1d2329; font-family: Arial, sans-serif; font-size: 13px; }
+.excel-grid th { position: sticky; z-index: 2; top: 0; min-width: 92px; height: 28px; border-right: 1px solid #d9dee3; border-bottom: 1px solid #c8ced5; background: #eef1f4; color: #59636e; font-size: 11px; }
+.excel-grid th:first-child { z-index: 4; left: 0; min-width: 42px; }
+.excel-grid tbody th { z-index: 1; left: 0; min-width: 42px; }
+.excel-grid td { min-width: 92px; height: 32px; border-right: 1px solid #e1e5e9; border-bottom: 1px solid #e1e5e9; }
+.excel-grid input { width: 100%; min-width: 92px; height: 31px; padding: 0 7px; border: 0; outline: 0; background: transparent; color: inherit; font: inherit; }
+.excel-grid input:focus { box-shadow: inset 0 0 0 2px #16834b; }
+.excel-editor-state { display: grid; min-height: 180px; padding: 24px; color: var(--text-secondary); place-items: center; }
+.excel-editor-state.error { color: var(--danger); }
+
+@media (max-width: 640px) {
+  .excel-editor-backdrop { padding: 0; }
+  .excel-editor-dialog { width: 100%; height: 100dvh; border: 0; border-radius: 0; }
+  .excel-editor-dialog > header { padding-top: max(10px, env(safe-area-inset-top)); }
+  .excel-editor-dialog > footer { align-items: stretch; flex-direction: column; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+  .excel-editor-dialog > footer .btn { width: 100%; min-height: 48px; }
+}

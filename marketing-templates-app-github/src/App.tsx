@@ -40,6 +40,7 @@ import {
 import {
   ensureCloudUser,
   deleteWorkspaceDocument,
+  downloadWorkspaceDocument,
   loadCloudState,
   openWorkspaceDocument,
   saveCloudState,
@@ -1032,7 +1033,8 @@ function App({ accountEmail, onSignOut }: AppProps) {
       showToast(lang === 'uk' ? 'Документ збережено' : 'Document saved');
     } catch (error) {
       console.error('Document upload failed', error);
-      showToast(lang === 'uk' ? 'Не вдалося завантажити документ' : 'Document upload failed', 'error');
+      const reason = error instanceof Error ? error.message : '';
+      showToast(`${lang === 'uk' ? 'Не вдалося завантажити файл' : 'File upload failed'}${reason ? `: ${reason}` : ''}`, 'error');
     } finally {
       setIsDocumentUploading(false);
     }
@@ -1045,6 +1047,26 @@ function App({ accountEmail, onSignOut }: AppProps) {
       console.error('Document open failed', error);
       showToast(lang === 'uk' ? 'Не вдалося відкрити документ' : 'Could not open document', 'error');
     }
+  };
+
+  const handleLoadDocument = (document: WorkspaceDocument) => downloadWorkspaceDocument(document.storagePath);
+
+  const handleSaveExcelDocument = async (document: WorkspaceDocument, file: File) => {
+    if (!currentUserId) throw new Error(lang === 'uk' ? 'Спочатку увійдіть в акаунт' : 'Sign in first');
+    const nextStoragePath = await uploadWorkspaceDocument(currentUserId, file);
+    setDocuments(previous => previous.map(item => item.id === document.id ? {
+      ...item,
+      name: file.name,
+      storagePath: nextStoragePath,
+      mimeType: file.type,
+      size: file.size,
+    } : item));
+    try {
+      await deleteWorkspaceDocument(document.storagePath);
+    } catch (error) {
+      console.warn('Old Excel version cleanup failed', error);
+    }
+    showToast(lang === 'uk' ? 'Excel-файл оновлено' : 'Excel file updated');
   };
 
   const handleDeleteDocument = async (document: WorkspaceDocument) => {
@@ -2762,6 +2784,8 @@ function App({ accountEmail, onSignOut }: AppProps) {
               onDeleteNotebook={handleDeleteNotebook}
               onUpload={(file, link) => { void handleUploadDocument(file, link); }}
               onOpenDocument={document => { void handleOpenDocument(document); }}
+              onLoadDocument={handleLoadDocument}
+              onSaveExcelDocument={handleSaveExcelDocument}
               onRenameDocument={handleRenameDocument}
               onDeleteDocument={document => { void handleDeleteDocument(document); }}
               onLinkDocument={handleLinkDocument}

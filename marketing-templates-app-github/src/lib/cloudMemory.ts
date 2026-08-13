@@ -162,6 +162,13 @@ export const saveCloudState = async (
 
 const DOCUMENT_BUCKET = 'workspace-documents';
 
+const getDocumentContentType = (file: File) => {
+  const extension = file.name.split('.').pop()?.toLowerCase();
+  if (extension === 'xlsx') return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  if (extension === 'xls') return 'application/vnd.ms-excel';
+  return file.type || 'application/octet-stream';
+};
+
 export const uploadWorkspaceDocument = async (userId: string, file: File): Promise<string> => {
   const extension = file.name.includes('.') ? `.${file.name.split('.').pop()!.toLowerCase()}` : '';
   const safeBaseName = file.name
@@ -172,11 +179,17 @@ export const uploadWorkspaceDocument = async (userId: string, file: File): Promi
     .slice(0, 60) || 'document';
   const path = `${userId}/${Date.now()}-${crypto.randomUUID()}-${safeBaseName}${extension}`;
   const { error } = await supabase.storage.from(DOCUMENT_BUCKET).upload(path, file, {
-    contentType: file.type || 'application/octet-stream',
+    contentType: getDocumentContentType(file),
     upsert: false,
   });
   if (error) throw error;
   return path;
+};
+
+export const downloadWorkspaceDocument = async (path: string): Promise<ArrayBuffer> => {
+  const { data, error } = await supabase.storage.from(DOCUMENT_BUCKET).download(path);
+  if (error) throw error;
+  return data.arrayBuffer();
 };
 
 export const openWorkspaceDocument = async (path: string): Promise<void> => {
