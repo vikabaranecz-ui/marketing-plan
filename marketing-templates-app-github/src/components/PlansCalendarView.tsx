@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Archive, CalendarRange, ChevronDown, ChevronRight, ListTodo } from 'lucide-react';
+import { Archive, CalendarRange, ChevronDown, ChevronRight, ListTodo, Trash2 } from 'lucide-react';
 import type { Language, Task, ZoomLevel } from '../types';
 
 export interface PlanCalendarItem {
@@ -21,6 +21,7 @@ interface PlansCalendarViewProps {
   onSelect: (id: string) => void;
   onTaskSelect: (planId: string, taskId: string) => void;
   onArchive: (id: string) => void;
+  onDelete: (id: string) => void;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -46,7 +47,7 @@ const startOfWeek = (date: Date) => {
   return result;
 };
 
-export default function PlansCalendarView({ plans, zoomLevel, lang, onSelect, onTaskSelect, onArchive }: PlansCalendarViewProps) {
+export default function PlansCalendarView({ plans, zoomLevel, lang, onSelect, onTaskSelect, onArchive, onDelete }: PlansCalendarViewProps) {
   const [collapsedPlanIds, setCollapsedPlanIds] = useState<Set<string>>(new Set());
 
   const togglePlan = (planId: string) => {
@@ -124,14 +125,10 @@ export default function PlansCalendarView({ plans, zoomLevel, lang, onSelect, on
                 </span>
                 <ChevronRight size={15} />
               </button>
-              <button
-                className="plans-calendar-archive"
-                onClick={() => onArchive(row.plan.id)}
-                title={lang === 'uk' ? 'Архівувати план' : 'Archive plan'}
-                aria-label={`${lang === 'uk' ? 'Архівувати план' : 'Archive plan'}: ${row.plan.title}`}
-              >
-                <Archive size={14} />
-              </button>
+              <div className="plans-calendar-actions">
+                <button onClick={() => onArchive(row.plan.id)} title={lang === 'uk' ? 'Архівувати план' : 'Archive plan'} aria-label={`${lang === 'uk' ? 'Архівувати план' : 'Archive plan'}: ${row.plan.title}`}><Archive size={14} /></button>
+                <button className="danger" onClick={() => onDelete(row.plan.id)} title={lang === 'uk' ? 'Видалити план' : 'Delete plan'} aria-label={`${lang === 'uk' ? 'Видалити план' : 'Delete plan'}: ${row.plan.title}`}><Trash2 size={14} /></button>
+              </div>
             </div>
           ) : (
             <button className="portfolio-gantt-task-row" onClick={() => onTaskSelect(row.plan.id, row.task.id)} key={row.id}>

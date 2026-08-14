@@ -1348,9 +1348,15 @@ textarea:focus-visible {
   font-size: 0.71rem;
 }
 
-.plans-calendar-archive {
+.plans-calendar-actions {
   position: absolute;
   right: 10px;
+  display: flex;
+  gap: 3px;
+  opacity: 0;
+}
+
+.plans-calendar-actions button {
   width: 28px;
   height: 28px;
   border: 1px solid transparent;
@@ -1358,18 +1364,26 @@ textarea:focus-visible {
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  opacity: 0;
 }
 
-.plans-calendar-plan:hover .plans-calendar-archive,
-.plans-calendar-plan:focus-within .plans-calendar-archive {
+.plans-calendar-plan:hover .plans-calendar-actions,
+.plans-calendar-plan:focus-within .plans-calendar-actions {
   opacity: 1;
 }
 
-.plans-calendar-archive:hover {
+.plans-calendar-actions button:hover {
   border-color: rgba(245, 158, 11, 0.25);
   background: rgba(245, 158, 11, 0.12);
   color: #b45309;
+}
+
+.plans-calendar-actions button.danger:hover,
+.portfolio-plan-delete:hover,
+.mobile-plan-actions button.danger:hover,
+.workspace-right-current button.danger:hover {
+  border-color: rgba(239, 68, 68, 0.28);
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--danger);
 }
 
 .plans-calendar-timeline-scroll {
@@ -10003,8 +10017,34 @@ button {
 
 .portfolio-plan-card-head {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-columns: 34px minmax(0, 1fr) 34px;
   align-items: stretch;
+}
+
+.portfolio-plan-delete {
+  display: grid;
+  min-width: 0;
+  border: 0;
+  border-left: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  place-items: center;
+}
+
+/* Plan actions stay reachable on touch screens and compact layouts. */
+.plans-calendar-open {
+  padding-right: 82px;
+}
+
+@media (hover: none), (max-width: 768px) {
+  .plans-calendar-actions {
+    opacity: 1;
+  }
+
+  .mobile-plan-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .portfolio-plan-collapse {

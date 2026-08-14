@@ -1,5 +1,5 @@
 import { useState, type CSSProperties } from 'react';
-import { CalendarRange, CheckCircle2, ChevronDown, ChevronRight, Circle, Clock3, ListTodo } from 'lucide-react';
+import { CalendarRange, CheckCircle2, ChevronDown, ChevronRight, Circle, Clock3, ListTodo, Trash2 } from 'lucide-react';
 import type { Language } from '../types';
 import type { PlanCalendarItem } from './PlansCalendarView';
 
@@ -8,6 +8,7 @@ interface PortfolioBoardProps {
   lang: Language;
   onOpenPlan: (planId: string) => void;
   onOpenTask: (planId: string, taskId: string) => void;
+  onDeletePlan: (planId: string) => void;
 }
 
 type PortfolioStatus = 'planned' | 'active' | 'done';
@@ -21,7 +22,7 @@ const columns: { id: PortfolioStatus; titleUa: string; titleEn: string; color: s
 const getPlanStatus = (plan: PlanCalendarItem): PortfolioStatus =>
   plan.progress >= 100 ? 'done' : plan.progress > 0 ? 'active' : 'planned';
 
-export default function PortfolioBoard({ plans, lang, onOpenPlan, onOpenTask }: PortfolioBoardProps) {
+export default function PortfolioBoard({ plans, lang, onOpenPlan, onOpenTask, onDeletePlan }: PortfolioBoardProps) {
   const [collapsedPlanIds, setCollapsedPlanIds] = useState<Set<string>>(new Set());
 
   const togglePlan = (planId: string) => {
@@ -67,6 +68,7 @@ export default function PortfolioBoard({ plans, lang, onOpenPlan, onOpenTask }: 
                           <span><strong>{plan.title}</strong><small>{plan.taskCount} {lang === 'uk' ? 'завдань' : 'tasks'} · {plan.startDate} — {plan.endDate}</small></span>
                           <ChevronRight size={16} />
                         </button>
+                        <button className="portfolio-plan-delete" onClick={() => onDeletePlan(plan.id)} title={lang === 'uk' ? 'Видалити план' : 'Delete plan'} aria-label={`${lang === 'uk' ? 'Видалити план' : 'Delete plan'}: ${plan.title}`}><Trash2 size={15} /></button>
                       </div>
 
                       <div className="portfolio-plan-progress"><span><i style={{ width: `${plan.progress}%`, background: plan.color }} /></span><strong>{plan.progress}%</strong></div>

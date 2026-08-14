@@ -1,4 +1,4 @@
-import { Archive, Bell, CalendarRange, ChevronRight, Pencil, Plus } from 'lucide-react';
+import { Archive, Bell, CalendarRange, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { Language } from '../types';
 import type { PlanCalendarItem } from './PlansCalendarView';
 
@@ -8,12 +8,13 @@ interface MobilePlansViewProps {
   lang: Language;
   onAdd: () => void;
   onArchive: (planId: string) => void;
+  onDelete: (planId: string) => void;
   onOpen: (planId: string) => void;
   onRename: (planId: string) => void;
   onReminder: (planId: string) => void;
 }
 
-export default function MobilePlansView({ plans, activePlanId, lang, onAdd, onArchive, onOpen, onRename, onReminder }: MobilePlansViewProps) {
+export default function MobilePlansView({ plans, activePlanId, lang, onAdd, onArchive, onDelete, onOpen, onRename, onReminder }: MobilePlansViewProps) {
   return (
     <section className="mobile-plans-screen">
       <div className="mobile-screen-intro">
@@ -47,6 +48,7 @@ export default function MobilePlansView({ plans, activePlanId, lang, onAdd, onAr
               <button onClick={() => onRename(plan.id)}><Pencil size={14} />{lang === 'uk' ? 'Назва' : 'Rename'}</button>
               <button onClick={() => onReminder(plan.id)}><Bell size={14} />{lang === 'uk' ? 'Нагадати' : 'Remind'}</button>
               <button onClick={() => onArchive(plan.id)}><Archive size={14} />{lang === 'uk' ? 'Архів' : 'Archive'}</button>
+              <button className="danger" onClick={() => onDelete(plan.id)}><Trash2 size={14} />{lang === 'uk' ? 'Видалити' : 'Delete'}</button>
             </div>
           </article>
         ))}

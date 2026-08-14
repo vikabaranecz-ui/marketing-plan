@@ -1680,24 +1680,44 @@ function App({ accountEmail, onSignOut }: AppProps) {
   };
 
   // 3. DELETE Project Plan
-  const handleDeletePlan = (templateId: string) => {
-    if (allTemplates.length <= 1) {
+  const handleDeletePlan = async (templateId: string) => {
+    const isActivePlan = allTemplates.some(template => template.id === templateId);
+    if (isActivePlan && allTemplates.length <= 1) {
       alert(lang === 'uk' ? 'Не можна видалити останній шаблон.' : 'You cannot delete the last template.');
       return;
     }
 
     const defaultTemplate = DEFAULT_TEMPLATES.find(t => t.id === templateId);
-    const template = defaultTemplate ?? customTemplates.find(t => t.id === templateId);
+    const customTemplate = customTemplates.find(t => t.id === templateId);
+    const sharedView = sharedPlanViews.find(view => view.template.id === templateId);
+    const template = defaultTemplate ?? customTemplate ?? sharedView?.template;
     if (!template) return;
+
+    if (sharedView) {
+      const team = collaborationTeams.find(item => item.id === sharedView.plan.teamId);
+      const canDeleteSharedPlan = sharedView.plan.ownerId === currentUserId || team?.currentUserRole === 'owner';
+      if (!canDeleteSharedPlan) {
+        showToast(lang === 'uk' ? 'Лише власник плану або команди може видалити командний план' : 'Only the plan or team owner can delete a shared plan', 'error');
+        return;
+      }
+    }
 
     const templateTitle = getPlanTitle(template);
     const confirmDel = confirm(`${getTranslation(lang, 'confirmDeletePlan')}\n\n${templateTitle}`);
     if (!confirmDel) return;
 
-    if (defaultTemplate) {
-      setHiddenDefaultTemplateIds(prev => prev.includes(templateId) ? prev : [...prev, templateId]);
-    } else {
-      setCustomTemplates(prev => prev.filter(t => t.id !== templateId));
+    try {
+      if (sharedView) await stopSharingPlan(sharedView.plan.id);
+      if (defaultTemplate) {
+        setHiddenDefaultTemplateIds(prev => prev.includes(templateId) ? prev : [...prev, templateId]);
+      } else if (customTemplate) {
+        setCustomTemplates(prev => prev.filter(t => t.id !== templateId));
+      }
+      if (sharedView) await refreshCollaborationState();
+    } catch (error) {
+      console.error('Plan deletion failed', error);
+      showToast(lang === 'uk' ? 'Не вдалося видалити план' : 'Could not delete plan', 'error');
+      return;
     }
     setPlanNameOverrides(prev => {
       const next = { ...prev };
@@ -1706,12 +1726,13 @@ function App({ accountEmail, onSignOut }: AppProps) {
     });
     localStorage.removeItem(`gantt_tasks_${templateId}`);
     setReminders(previous => previous.filter(reminder => reminder.planId !== templateId));
+    setArchivedPlanIds(previous => previous.filter(id => id !== templateId));
 
     if (activeTemplateId === templateId) {
       const nextTemplate = allTemplates.find(t => t.id !== templateId);
       if (nextTemplate) setActiveTemplateId(nextTemplate.id);
     }
-    showToast(lang === 'uk' ? 'Шаблон видалено' : 'Template deleted', 'success');
+    showToast(lang === 'uk' ? 'План видалено' : 'Plan deleted', 'success');
   };
 
   // Save current plan state as a custom template
@@ -2822,6 +2843,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
                   lang={lang}
                   onAdd={handleCreateBlankPlan}
                   onArchive={handleArchivePlan}
+                  onDelete={planId => { void handleDeletePlan(planId); }}
                   onOpen={id => {
                     handleTemplateSelect(id);
                     setActiveTab('grid');
@@ -2840,6 +2862,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
                     setActiveTab('grid');
                   }}
                   onOpenTask={handleOpenGlobalTask}
+                  onDeletePlan={planId => { void handleDeletePlan(planId); }}
                 />
               )}
 
@@ -2854,6 +2877,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
                   }}
                   onTaskSelect={handleOpenGlobalTask}
                   onArchive={handleArchivePlan}
+                  onDelete={planId => { void handleDeletePlan(planId); }}
                 />
               )}
             </div>
@@ -2963,6 +2987,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
           <div>
             <button className="workspace-quick-task" onClick={() => { setActiveTab('grid'); handleAddTask('todo'); }}><Plus size={16} />{lang === 'uk' ? 'Нове завдання' : 'New task'}</button>
             <button onClick={() => setActiveTab('grid')}><ListTodo size={15} />{lang === 'uk' ? 'Відкрити' : 'Open'}</button>
+            <button className="danger" onClick={() => { void handleDeletePlan(activeTemplateId); }}><Trash2 size={15} />{lang === 'uk' ? 'Видалити' : 'Delete'}</button>
           </div>
         </div>
       </aside>
@@ -3258,6 +3283,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
                       <RotateCcw size={14} />
                       {lang === 'uk' ? 'Відновити' : 'Restore'}
                     </button>
+                    <button className="btn-icon danger-icon" onClick={() => { void handleDeletePlan(template.id); }} aria-label={`${lang === 'uk' ? 'Видалити план' : 'Delete plan'}: ${getPlanTitle(template)}`} title={lang === 'uk' ? 'Видалити назавжди' : 'Delete permanently'}><Trash2 size={15} /></button>
                   </div>
                 ))}
                 {archivedTemplates.length === 0 && (
