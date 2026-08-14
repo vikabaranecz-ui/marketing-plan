@@ -1336,6 +1336,9 @@ function App({ accountEmail, onSignOut }: AppProps) {
     targetDate.setDate(targetDate.getDate() + 5);
     const end = targetDate.toISOString().split('T')[0];
 
+    const validStatuses: Task['status'][] = ['todo', 'in_progress', 'in_review', 'done'];
+    const taskStatus = validStatuses.includes(status) ? status : 'todo';
+
     const newTask: Task = {
       id: `task_${Date.now()}`,
       title: title?.trim() || (lang === 'uk' ? 'Нове завдання' : 'New Task'),
@@ -1343,7 +1346,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
       startDate: today,
       endDate: end,
       progress: 0,
-      status: status,
+      status: taskStatus,
       assignee: teamMembers[0]?.name ?? '',
       isMilestone: false,
       color: '#6366f1',
@@ -2885,7 +2888,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
               <GridView
                 tasks={filteredTasks}
                 updateTask={handleUpdateTask}
-                addTask={handleAddTask}
+                addTask={() => handleAddTask('todo')}
                 cloneTask={handleCloneTask}
                 deleteTask={handleDeleteTask}
                 setSelectedTaskId={setSelectedTaskId}
