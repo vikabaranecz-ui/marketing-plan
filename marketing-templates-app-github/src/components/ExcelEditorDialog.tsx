@@ -50,6 +50,7 @@ export default function ExcelEditorDialog({ document: workspaceDocument, lang, o
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [retryRevision, setRetryRevision] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -63,13 +64,14 @@ export default function ExcelEditorDialog({ document: workspaceDocument, lang, o
         setSheetName(nextWorkbook.worksheets[0]?.name ?? '');
       } catch (loadError) {
         console.error('Excel open failed', loadError);
-        if (active) setError(lang === 'uk' ? 'Не вдалося прочитати Excel-файл. Формат .xls потрібно спочатку зберегти як .xlsx.' : 'Could not read this workbook. Save legacy .xls as .xlsx first.');
+        const reason = loadError instanceof Error ? loadError.message : '';
+        if (active) setError(`${lang === 'uk' ? 'Не вдалося прочитати Excel-файл' : 'Could not read this workbook'}${reason ? `: ${reason}` : '.'}`);
       } finally {
         if (active) setLoading(false);
       }
     })();
     return () => { active = false; };
-  }, [workspaceDocument, lang, onLoad]);
+  }, [workspaceDocument, lang, onLoad, retryRevision]);
 
   const sheet = workbook?.getWorksheet(sheetName);
   const dimensions = useMemo(() => {
@@ -107,7 +109,7 @@ export default function ExcelEditorDialog({ document: workspaceDocument, lang, o
         </header>
 
         {loading && <div className="excel-editor-state">{lang === 'uk' ? 'Відкриваю таблицю…' : 'Opening workbook…'}</div>}
-        {error && <div className="excel-editor-state error">{error}</div>}
+        {error && <div className="excel-editor-state error"><span>{error}</span><button className="btn btn-secondary" onClick={() => { setError(''); setLoading(true); setRetryRevision(value => value + 1); }}>{lang === 'uk' ? 'Спробувати ще раз' : 'Try again'}</button></div>}
 
         {!loading && workbook && sheet && <>
           <nav className="excel-sheet-tabs">
@@ -119,7 +121,7 @@ export default function ExcelEditorDialog({ document: workspaceDocument, lang, o
               <thead><tr><th />{Array.from({ length: dimensions.columns }, (_, column) => <th key={column}>{columnLabel(column)}</th>)}</tr></thead>
               <tbody>{Array.from({ length: dimensions.rows }, (_, rowIndex) => <tr key={rowIndex}><th>{rowIndex + 1}</th>{Array.from({ length: dimensions.columns }, (_, columnIndex) => {
                 const cell = sheet.getCell(rowIndex + 1, columnIndex + 1);
-                return <td key={columnIndex}><input defaultValue={displayValue(cell.value)} onChange={event => { cell.value = parseValue(event.target.value); }} onBlur={() => setRevision(value => value + 1)} aria-label={`${rowIndex + 1}:${columnIndex + 1}`} /></td>;
+                return <td key={`${sheetName}-${columnIndex}`}><input defaultValue={displayValue(cell.value)} onChange={event => { cell.value = parseValue(event.target.value); }} onBlur={() => setRevision(value => value + 1)} aria-label={`${rowIndex + 1}:${columnIndex + 1}`} /></td>;
               })}</tr>)}</tbody>
             </table>
           </div>

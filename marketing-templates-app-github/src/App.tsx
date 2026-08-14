@@ -1051,7 +1051,10 @@ function App({ accountEmail, onSignOut }: AppProps) {
     }
   };
 
-  const handleLoadDocument = (document: WorkspaceDocument) => downloadWorkspaceDocument(document.storagePath);
+  const handleLoadDocument = useCallback(
+    (document: WorkspaceDocument) => downloadWorkspaceDocument(document.storagePath),
+    [],
+  );
 
   const handleSaveExcelDocument = async (document: WorkspaceDocument, file: File) => {
     if (!currentUserId) throw new Error(lang === 'uk' ? 'Спочатку увійдіть в акаунт' : 'Sign in first');
