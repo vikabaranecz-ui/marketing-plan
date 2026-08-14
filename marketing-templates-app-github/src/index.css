@@ -6664,6 +6664,19 @@ textarea:focus-visible {
   place-items: center;
 }
 
+.note-list-heading > button {
+  display: grid;
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  border: 1px solid var(--glass-border);
+  border-radius: 9px;
+  background: var(--bg-card);
+  color: var(--primary);
+  cursor: pointer;
+  place-items: center;
+}
+
 .knowledge-library-sidebar .knowledge-note-list > button {
   border: 1px solid transparent;
 }

@@ -76,7 +76,10 @@ export default function KnowledgeHub({
   const draftTasks = draft?.planId ? tasks.filter(task => task.planId === draft.planId) : [];
   const activeFilterCount = Number(notebookFilter !== 'all') + Number(planFilter !== 'all') + Number(taskFilter !== 'all');
   const attachments = draft ? documents.filter(document => document.noteId === draft.id) : [];
-  const unfiledDocuments = draft ? documents.filter(document => !document.noteId) : [];
+  const unfiledDocuments = draft ? documents.filter(document => !document.noteId && (!activeNotebook || document.notebookId === activeNotebook.id)) : [];
+  const folderDocuments = activeNotebook
+    ? documents.filter(document => document.notebookId === activeNotebook.id && Boolean(document.noteId) && document.noteId !== draft?.id)
+    : [];
 
   const filteredNotes = notes.filter(note => {
     const matchesQuery = !deferredQuery || `${note.title} ${note.content} ${note.tags.join(' ')}`.toLocaleLowerCase().includes(deferredQuery);
@@ -93,6 +96,18 @@ export default function KnowledgeHub({
   }, [draft, notes, selectedNoteId]);
 
   const selectNote = (note: WorkspaceNote) => { setSelectedNoteId(note.id); setDraft(note); };
+  const openNotebook = (notebookId: string) => {
+    setNotebookFilter(notebookId);
+    const firstPage = notes.find(note => note.notebookId === notebookId);
+    setSelectedNoteId(firstPage?.id ?? '');
+    setDraft(firstPage ?? null);
+  };
+  const openPageCollection = (filter: 'all' | 'unlinked') => {
+    setNotebookFilter(filter);
+    const firstPage = filter === 'all' ? notes[0] : notes.find(note => !note.notebookId);
+    setSelectedNoteId(firstPage?.id ?? '');
+    setDraft(firstPage ?? null);
+  };
   const editNote = (note: WorkspaceNote) => {
     selectNote(note);
     window.requestAnimationFrame(() => { titleRef.current?.focus(); titleRef.current?.select(); });
@@ -103,24 +118,32 @@ export default function KnowledgeHub({
     if (draft?.id === note.id) { setDraft(null); setSelectedNoteId(''); }
   };
   const createNote = () => {
-    const note = onCreateNote(activeNotebook?.id);
+    const targetNotebookId = activeNotebook?.id ?? draft?.notebookId;
+    if (!targetNotebookId) {
+      alert(lang === 'uk' ? 'Спочатку відкрийте або створіть папку.' : 'Open or create a folder first.');
+      return;
+    }
+    const note = onCreateNote(targetNotebookId);
+    setNotebookFilter(targetNotebookId);
     setSelectedNoteId(note.id);
     setDraft(note);
   };
   const createNotebook = () => {
-    const name = prompt(lang === 'uk' ? 'Назва нового щоденника' : 'New journal name')?.trim();
+    const name = prompt(lang === 'uk' ? 'Назва нової папки' : 'New folder name')?.trim();
     if (!name) return;
     const notebook = onCreateNotebook(name);
     setNotebookFilter(notebook.id);
+    setSelectedNoteId('');
+    setDraft(null);
     setPlanFilter('all');
     setTaskFilter('all');
   };
   const renameNotebook = (notebook: WorkspaceNotebook) => {
-    const name = prompt(lang === 'uk' ? 'Нова назва щоденника' : 'New journal name', notebook.name)?.trim();
+    const name = prompt(lang === 'uk' ? 'Нова назва папки' : 'New folder name', notebook.name)?.trim();
     if (name && name !== notebook.name) onUpdateNotebook({ ...notebook, name });
   };
   const deleteNotebook = (notebook: WorkspaceNotebook) => {
-    if (!confirm(lang === 'uk' ? `Видалити щоденник «${notebook.name}»? Нотатки залишаться.` : `Delete “${notebook.name}”? Notes will be kept.`)) return;
+    if (!confirm(lang === 'uk' ? `Видалити папку «${notebook.name}»? Сторінки та файли залишаться.` : `Delete “${notebook.name}”? Pages and files will be kept.`)) return;
     onDeleteNotebook(notebook.id);
     if (notebookFilter === notebook.id) setNotebookFilter('all');
   };
@@ -164,18 +187,18 @@ export default function KnowledgeHub({
   return (
     <section className="knowledge-hub">
       <header className="simple-page-header">
-        <div><span>{lang === 'uk' ? 'Ваш простір знань' : 'Your knowledge space'}</span><h1>{lang === 'uk' ? 'Щоденники та нотатки' : 'Journals & notes'}</h1><p>{lang === 'uk' ? 'Створіть нотатку, а фото, PDF і рукопис зберігайте прямо в ній.' : 'Create a note, then keep photos, PDFs, and handwriting inside it.'}</p></div>
-        <button className="btn btn-primary" onClick={createNote}><Plus size={16} />{lang === 'uk' ? 'Нова нотатка' : 'New note'}</button>
+        <div><span>{lang === 'uk' ? 'Ваш простір знань' : 'Your knowledge space'}</span><h1>{lang === 'uk' ? 'Папки та сторінки' : 'Folders & pages'}</h1><p>{lang === 'uk' ? 'У кожній папці створюйте окремі сторінки, а файли залишаться прив’язаними до цієї папки.' : 'Create separate pages in every folder; uploaded files stay linked to that folder.'}</p></div>
+        <button className="btn btn-primary" onClick={createNote}><Plus size={16} />{lang === 'uk' ? 'Нова сторінка' : 'New page'}</button>
       </header>
 
       <div className="knowledge-toolbar">
-        <div className="knowledge-tabs"><button className="active"><NotebookPen size={16} />{lang === 'uk' ? 'Нотатки' : 'Notes'} <span>{notes.length}</span></button></div>
+        <div className="knowledge-tabs"><button className="active"><NotebookPen size={16} />{lang === 'uk' ? 'Сторінки' : 'Pages'} <span>{notes.length}</span></button></div>
         <label className="knowledge-search"><Search size={16} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder={lang === 'uk' ? 'Знайти нотатку…' : 'Find a note…'} /></label>
         <button className={`knowledge-filter-toggle ${filtersOpen || activeFilterCount ? 'active' : ''}`} onClick={() => setFiltersOpen(previous => !previous)}><SlidersHorizontal size={16} />{lang === 'uk' ? 'Фільтр' : 'Filter'}{activeFilterCount > 0 && <span>{activeFilterCount}</span>}</button>
       </div>
 
       {filtersOpen && <div className="knowledge-filter-bar">
-        <label><span>{lang === 'uk' ? 'Щоденник' : 'Journal'}</span><select value={notebookFilter} onChange={event => setNotebookFilter(event.target.value)}><option value="all">{lang === 'uk' ? 'Усі щоденники' : 'All journals'}</option><option value="unlinked">{lang === 'uk' ? 'Без щоденника' : 'Without journal'}</option>{notebooks.map(notebook => <option value={notebook.id} key={notebook.id}>{notebook.name}</option>)}</select></label>
+        <label><span>{lang === 'uk' ? 'Папка' : 'Folder'}</span><select value={notebookFilter} onChange={event => event.target.value === 'all' || event.target.value === 'unlinked' ? openPageCollection(event.target.value) : openNotebook(event.target.value)}><option value="all">{lang === 'uk' ? 'Усі папки' : 'All folders'}</option><option value="unlinked">{lang === 'uk' ? 'Без папки' : 'Without folder'}</option>{notebooks.map(notebook => <option value={notebook.id} key={notebook.id}>{notebook.name}</option>)}</select></label>
         <label><span>{lang === 'uk' ? 'План' : 'Plan'}</span><select value={planFilter} onChange={event => { setPlanFilter(event.target.value); setTaskFilter('all'); }}><option value="all">{lang === 'uk' ? 'Усі плани' : 'All plans'}</option><option value="unlinked">{lang === 'uk' ? 'Без плану' : 'Without plan'}</option>{plans.map(plan => <option value={plan.id} key={plan.id}>{plan.title}</option>)}</select></label>
         <label><span>{lang === 'uk' ? 'Завдання' : 'Task'}</span><select value={taskFilter} onChange={event => setTaskFilter(event.target.value)}><option value="all">{lang === 'uk' ? 'Усі завдання' : 'All tasks'}</option><option value="unlinked">{lang === 'uk' ? 'Без завдання' : 'Without task'}</option>{taskFilterOptions.map(task => <option value={task.id} key={`${task.planId}-${task.id}`}>{task.planTitle} · {task.title}</option>)}</select></label>
         <button onClick={clearFilters}><X size={15} />{lang === 'uk' ? 'Очистити' : 'Clear'}</button>
@@ -183,23 +206,23 @@ export default function KnowledgeHub({
 
       <div className="knowledge-notes-layout knowledge-notebooks-layout">
         <aside className="knowledge-library-sidebar">
-          <div className="notebook-sidebar-heading"><span><BookOpen size={16} />{lang === 'uk' ? 'Щоденники' : 'Journals'}</span><button onClick={createNotebook} aria-label={lang === 'uk' ? 'Створити щоденник' : 'Create journal'}><FolderPlus size={17} /></button></div>
+          <div className="notebook-sidebar-heading"><span><BookOpen size={16} />{lang === 'uk' ? 'Папки' : 'Folders'}</span><button onClick={createNotebook} aria-label={lang === 'uk' ? 'Створити папку' : 'Create folder'}><FolderPlus size={17} /></button></div>
           <div className="notebook-list">
-            <button className={notebookFilter === 'all' ? 'active' : ''} onClick={() => setNotebookFilter('all')}><FolderOpen size={16} /><span><strong>{lang === 'uk' ? 'Усі нотатки' : 'All notes'}</strong><small>{notes.length}</small></span></button>
-            <button className={notebookFilter === 'unlinked' ? 'active' : ''} onClick={() => setNotebookFilter('unlinked')}><Folder size={16} /><span><strong>{lang === 'uk' ? 'Без щоденника' : 'Unfiled'}</strong><small>{notes.filter(note => !note.notebookId).length}</small></span></button>
+            <button className={notebookFilter === 'all' ? 'active' : ''} onClick={() => openPageCollection('all')}><FolderOpen size={16} /><span><strong>{lang === 'uk' ? 'Усі сторінки' : 'All pages'}</strong><small>{notes.length}</small></span></button>
+            <button className={notebookFilter === 'unlinked' ? 'active' : ''} onClick={() => openPageCollection('unlinked')}><Folder size={16} /><span><strong>{lang === 'uk' ? 'Без папки' : 'Unfiled'}</strong><small>{notes.filter(note => !note.notebookId).length}</small></span></button>
             {notebooks.map(notebook => <div className={`notebook-row ${notebookFilter === notebook.id ? 'active' : ''}`} key={notebook.id}>
-              <button className="notebook-row-main" onClick={() => setNotebookFilter(notebook.id)}><i style={{ background: notebook.color }} /><span><strong>{notebook.name}</strong><small>{notes.filter(note => note.notebookId === notebook.id).length} {lang === 'uk' ? 'нотаток' : 'notes'}</small></span></button>
+              <button className="notebook-row-main" onClick={() => openNotebook(notebook.id)}><i style={{ background: notebook.color }} /><span><strong>{notebook.name}</strong><small>{notes.filter(note => note.notebookId === notebook.id).length} {lang === 'uk' ? 'сторінок' : 'pages'} · {documents.filter(document => document.notebookId === notebook.id).length} {lang === 'uk' ? 'файлів' : 'files'}</small></span></button>
               <button onClick={() => renameNotebook(notebook)} aria-label={lang === 'uk' ? 'Перейменувати' : 'Rename'}><Pencil size={13} /></button>
               <button className="danger" onClick={() => deleteNotebook(notebook)} aria-label={lang === 'uk' ? 'Видалити' : 'Delete'}><Trash2 size={13} /></button>
             </div>)}
           </div>
           {activeNotebook && <div className="notebook-link-panel">
-            <span><Link2 size={14} />{lang === 'uk' ? 'Прив’язка щоденника' : 'Journal link'}</span>
+            <span><Link2 size={14} />{lang === 'uk' ? 'Прив’язка папки' : 'Folder link'}</span>
             <select value={activeNotebook.planId ?? ''} onChange={event => onUpdateNotebook({ ...activeNotebook, planId: event.target.value || undefined, taskId: undefined })}><option value="">{lang === 'uk' ? 'Без плану' : 'No plan'}</option>{plans.map(plan => <option value={plan.id} key={plan.id}>{plan.title}</option>)}</select>
             <select value={activeNotebook.taskId ?? ''} disabled={!activeNotebook.planId} onChange={event => onUpdateNotebook({ ...activeNotebook, taskId: event.target.value || undefined })}><option value="">{lang === 'uk' ? 'Без завдання' : 'No task'}</option>{activeNotebookTasks.map(task => <option value={task.id} key={`${task.planId}-${task.id}`}>{task.title}</option>)}</select>
           </div>}
           <div className="knowledge-note-list">
-            <div className="note-list-heading"><span>{lang === 'uk' ? 'Нотатки' : 'Notes'}</span><strong>{filteredNotes.length}</strong></div>
+            <div className="note-list-heading"><span>{activeNotebook ? (lang === 'uk' ? 'Сторінки папки' : 'Folder pages') : (lang === 'uk' ? 'Сторінки' : 'Pages')}</span><strong>{filteredNotes.length}</strong>{activeNotebook && <button onClick={createNote} aria-label={lang === 'uk' ? 'Нова сторінка в папці' : 'New page in folder'} title={lang === 'uk' ? 'Нова сторінка' : 'New page'}><Plus size={15} /></button>}</div>
             {filteredNotes.map(note => <div className={`note-list-row ${selectedNoteId === note.id ? 'active' : ''}`} key={note.id}>
               <button className="note-list-row-main" onClick={() => selectNote(note)}><strong>{note.title || (lang === 'uk' ? 'Без назви' : 'Untitled')}</strong><small>{notebooks.find(item => item.id === note.notebookId)?.name ?? (lang === 'uk' ? 'Без щоденника' : 'Unfiled')} · {new Date(note.updatedAt).toLocaleDateString(lang === 'uk' ? 'uk-UA' : 'en-US')}</small></button>
               <button onClick={() => editNote(note)} aria-label={lang === 'uk' ? 'Редагувати нотатку' : 'Edit note'} title={lang === 'uk' ? 'Редагувати' : 'Edit'}><Pencil size={14} /></button>
@@ -216,9 +239,9 @@ export default function KnowledgeHub({
           </header>
 
           <details className="note-properties">
-            <summary><Link2 size={16} /><span>{lang === 'uk' ? 'Щоденник, план, завдання й теги' : 'Journal, plan, task & tags'}</span></summary>
+            <summary><Link2 size={16} /><span>{lang === 'uk' ? 'Папка, план, завдання й теги' : 'Folder, plan, task & tags'}</span></summary>
             <div className="knowledge-editor-meta knowledge-editor-links">
-              <label><span>{lang === 'uk' ? 'Щоденник' : 'Journal'}</span><select value={draft.notebookId ?? ''} onChange={event => setDraft({ ...draft, notebookId: event.target.value || undefined })}><option value="">{lang === 'uk' ? 'Без щоденника' : 'No journal'}</option>{notebooks.map(notebook => <option value={notebook.id} key={notebook.id}>{notebook.name}</option>)}</select></label>
+              <label><span>{lang === 'uk' ? 'Папка' : 'Folder'}</span><select value={draft.notebookId ?? ''} onChange={event => setDraft({ ...draft, notebookId: event.target.value || undefined })}><option value="">{lang === 'uk' ? 'Без папки' : 'No folder'}</option>{notebooks.map(notebook => <option value={notebook.id} key={notebook.id}>{notebook.name}</option>)}</select></label>
               <label><span>{lang === 'uk' ? 'План' : 'Plan'}</span><select value={draft.planId ?? ''} onChange={event => setDraft({ ...draft, planId: event.target.value || undefined, taskId: undefined })}><option value="">{lang === 'uk' ? 'Без плану' : 'No plan'}</option>{plans.map(plan => <option value={plan.id} key={plan.id}>{plan.title}</option>)}</select></label>
               <label><span>{lang === 'uk' ? 'Завдання' : 'Task'}</span><select value={draft.taskId ?? ''} disabled={!draft.planId} onChange={event => setDraft({ ...draft, taskId: event.target.value || undefined })}><option value="">{lang === 'uk' ? 'Без завдання' : 'No task'}</option>{draftTasks.map(task => <option value={task.id} key={`${task.planId}-${task.id}`}>{task.title}</option>)}</select></label>
               <label><span>{lang === 'uk' ? 'Теги' : 'Tags'}</span><input value={draft.tags.join(', ')} onChange={event => setDraft({ ...draft, tags: event.target.value.split(',').map(tag => tag.trim()).filter(Boolean) })} placeholder={lang === 'uk' ? 'ідея, важливо' : 'idea, important'} /></label>
@@ -249,6 +272,10 @@ export default function KnowledgeHub({
             <header><span><Paperclip size={16} />{lang === 'uk' ? 'Вкладення нотатки' : 'Note attachments'}</span><strong>{attachments.length}</strong></header>
             {attachments.map(document => <div className={`note-attachment-row ${isExcelDocument(document) ? 'excel' : ''}`} key={document.id}>{isExcelDocument(document) ? <FileSpreadsheet size={18} /> : <FileText size={18} />}<span><strong>{document.name}</strong><small>{isExcelDocument(document) ? (lang === 'uk' ? 'Excel · редагується в додатку' : 'Excel · editable in app') : ''}{isExcelDocument(document) ? ' · ' : ''}{(document.size / 1024 / 1024).toFixed(1)} MB</small></span><button className={isExcelDocument(document) ? 'excel-edit-button' : ''} onClick={() => isExcelDocument(document) ? setExcelDocument(document) : onOpenDocument(document)} aria-label={lang === 'uk' ? 'Відкрити' : 'Open'} title={isExcelDocument(document) ? (lang === 'uk' ? 'Відкрити й редагувати в додатку' : 'Open and edit in app') : (lang === 'uk' ? 'Відкрити' : 'Open')}>{isExcelDocument(document) ? <><Pencil size={15} /><span>{lang === 'uk' ? 'Редагувати' : 'Edit'}</span></> : <ExternalLink size={16} />}</button><button onClick={() => renameDocument(document)} aria-label={lang === 'uk' ? 'Перейменувати' : 'Rename'} title={lang === 'uk' ? 'Редагувати назву' : 'Edit name'}><Pencil size={16} /></button><button className="danger" onClick={() => onDeleteDocument(document)} aria-label={lang === 'uk' ? 'Видалити' : 'Delete'} title={lang === 'uk' ? 'Видалити' : 'Delete'}><Trash2 size={16} /></button></div>)}
             {unfiledDocuments.length > 0 && <details><summary>{lang === 'uk' ? `Раніше завантажені файли (${unfiledDocuments.length})` : `Previously uploaded files (${unfiledDocuments.length})`}</summary>{unfiledDocuments.map(document => <div className={`note-attachment-row ${isExcelDocument(document) ? 'excel' : ''}`} key={document.id}>{isExcelDocument(document) ? <FileSpreadsheet size={18} /> : <FileText size={18} />}<span><strong>{document.name}</strong><small>{isExcelDocument(document) ? 'Excel' : (lang === 'uk' ? 'Ще не в нотатці' : 'Not in a note yet')}</small></span><button className={isExcelDocument(document) ? 'excel-edit-button' : ''} onClick={() => isExcelDocument(document) ? setExcelDocument(document) : onOpenDocument(document)}>{isExcelDocument(document) ? <><Pencil size={15} /><span>{lang === 'uk' ? 'Редагувати' : 'Edit'}</span></> : <><ExternalLink size={15} />{lang === 'uk' ? 'Відкрити' : 'Open'}</>}</button><button onClick={() => attachExisting(document)}>{lang === 'uk' ? 'До нотатки' : 'Attach'}</button><button onClick={() => renameDocument(document)} aria-label={lang === 'uk' ? 'Перейменувати' : 'Rename'} title={lang === 'uk' ? 'Редагувати назву' : 'Edit name'}><Pencil size={16} /></button><button className="danger" onClick={() => onDeleteDocument(document)} aria-label={lang === 'uk' ? 'Видалити' : 'Delete'} title={lang === 'uk' ? 'Видалити' : 'Delete'}><Trash2 size={16} /></button></div>)}</details>}
+          </section>}
+          {activeNotebook && folderDocuments.length > 0 && <section className="note-attachments folder-files">
+            <header><span><FolderOpen size={16} />{lang === 'uk' ? `Інші файли папки «${activeNotebook.name}»` : `Other files in “${activeNotebook.name}”`}</span><strong>{folderDocuments.length}</strong></header>
+            {folderDocuments.map(document => <div className={`note-attachment-row ${isExcelDocument(document) ? 'excel' : ''}`} key={document.id}>{isExcelDocument(document) ? <FileSpreadsheet size={18} /> : <FileText size={18} />}<span><strong>{document.name}</strong><small>{notes.find(note => note.id === document.noteId)?.title ?? (lang === 'uk' ? 'Файл папки' : 'Folder file')}</small></span><button className={isExcelDocument(document) ? 'excel-edit-button' : ''} onClick={() => isExcelDocument(document) ? setExcelDocument(document) : onOpenDocument(document)}>{isExcelDocument(document) ? <><Pencil size={15} /><span>{lang === 'uk' ? 'Редагувати' : 'Edit'}</span></> : <><ExternalLink size={15} />{lang === 'uk' ? 'Відкрити' : 'Open'}</>}</button><button onClick={() => attachExisting(document)}>{lang === 'uk' ? 'До сторінки' : 'To page'}</button><button className="danger" onClick={() => onDeleteDocument(document)} aria-label={lang === 'uk' ? 'Видалити' : 'Delete'}><Trash2 size={16} /></button></div>)}
           </section>}
         </article> : <div className="simple-empty"><NotebookPen /><strong>{lang === 'uk' ? 'Створіть першу нотатку' : 'Create your first note'}</strong></div>}
       </div>

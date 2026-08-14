@@ -990,7 +990,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
       updatedAt: now,
     };
     setNotebooks(previous => [...previous, notebook]);
-    showToast(lang === 'uk' ? 'Щоденник створено' : 'Journal created');
+    showToast(lang === 'uk' ? 'Папку створено' : 'Folder created');
     return notebook;
   };
 
@@ -1005,7 +1005,8 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const handleDeleteNotebook = (notebookId: string) => {
     setNotebooks(previous => previous.filter(notebook => notebook.id !== notebookId));
     setNotes(previous => previous.map(note => note.notebookId === notebookId ? { ...note, notebookId: undefined } : note));
-    showToast(lang === 'uk' ? 'Щоденник видалено, нотатки залишились' : 'Journal deleted, notes kept');
+    setDocuments(previous => previous.map(document => document.notebookId === notebookId ? { ...document, notebookId: undefined } : document));
+    showToast(lang === 'uk' ? 'Папку видалено, сторінки та файли залишились' : 'Folder deleted, pages and files kept');
   };
 
   const handleUploadDocument = async (
