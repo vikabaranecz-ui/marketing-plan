@@ -8,7 +8,7 @@ import {
   Share2, Lock, UserPlus, Shield, Smartphone, Bell, Lightbulb, Home, ListTodo, NotebookPen, Bot
 } from 'lucide-react';
 import './App.css';
-import type { Task, MarketingTemplate, ActiveTab, ZoomLevel, Language, TeamMember, Reminder, Idea, WorkspaceDocument, WorkspaceNote, WorkspaceNotebook } from './types';
+import type { Task, MarketingTemplate, ActiveTab, ZoomLevel, Language, TeamMember, Reminder, Idea, WorkspaceDocument, WorkspaceNote, WorkspaceNotebook, Client, Campaign, ContentItem, MetricPoint, SocialAccount } from './types';
 import { DEFAULT_TEMPLATES, TEAM_MEMBERS } from './data/templatesData';
 import { getTranslation } from './utils/locales';
 import { normalizeTaskProgress, withAutomaticTaskProgress } from './utils/taskProgress';
@@ -158,6 +158,11 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const [documents, setDocuments] = useState<WorkspaceDocument[]>(() =>
     getLocalStorage<WorkspaceDocument[]>('gantt_documents', [])
   );
+  const [clients, setClients] = useState<Client[]>(() => getLocalStorage<Client[]>('marketing_clients', []));
+  const [campaigns, setCampaigns] = useState<Campaign[]>(() => getLocalStorage<Campaign[]>('marketing_campaigns', []));
+  const [contentItems, setContentItems] = useState<ContentItem[]>(() => getLocalStorage<ContentItem[]>('marketing_content_items', []));
+  const [metrics, setMetrics] = useState<MetricPoint[]>(() => getLocalStorage<MetricPoint[]>('marketing_metrics', []));
+  const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>(() => getLocalStorage<SocialAccount[]>('marketing_social_accounts', []));
   const [isDocumentUploading, setIsDocumentUploading] = useState(false);
   
   // Active Project Plan id
@@ -534,6 +539,12 @@ function App({ accountEmail, onSignOut }: AppProps) {
     localStorage.setItem('gantt_documents', JSON.stringify(documents));
   }, [documents]);
 
+  useEffect(() => { localStorage.setItem('marketing_clients', JSON.stringify(clients)); }, [clients]);
+  useEffect(() => { localStorage.setItem('marketing_campaigns', JSON.stringify(campaigns)); }, [campaigns]);
+  useEffect(() => { localStorage.setItem('marketing_content_items', JSON.stringify(contentItems)); }, [contentItems]);
+  useEffect(() => { localStorage.setItem('marketing_metrics', JSON.stringify(metrics)); }, [metrics]);
+  useEffect(() => { localStorage.setItem('marketing_social_accounts', JSON.stringify(socialAccounts)); }, [socialAccounts]);
+
   // Save Language changes
   useEffect(() => {
     localStorage.setItem('gantt_lang', JSON.stringify(lang));
@@ -582,6 +593,11 @@ function App({ accountEmail, onSignOut }: AppProps) {
             notes: [],
             notebooks: [],
             documents: [],
+            clients: [],
+            campaigns: [],
+            contentItems: [],
+            metrics: [],
+            socialAccounts: [],
           };
           await saveCloudState(userId, cloudState);
           if (cancelled) return;
@@ -604,6 +620,11 @@ function App({ accountEmail, onSignOut }: AppProps) {
           const restoredNotes = cloudState.notes ?? [];
           const restoredNotebooks = cloudState.notebooks ?? [];
           const restoredDocuments = cloudState.documents ?? [];
+          const restoredClients = cloudState.clients ?? [];
+          const restoredCampaigns = cloudState.campaigns ?? [];
+          const restoredContentItems = cloudState.contentItems ?? [];
+          const restoredMetrics = cloudState.metrics ?? [];
+          const restoredSocialAccounts = cloudState.socialAccounts ?? [];
           localStorage.setItem('gantt_hidden_default_templates', JSON.stringify(restoredHiddenDefaultTemplateIds));
           localStorage.setItem('gantt_team_members', JSON.stringify(restoredTeamMembers));
           localStorage.setItem('gantt_plan_name_overrides', JSON.stringify(restoredPlanNameOverrides));
@@ -613,6 +634,11 @@ function App({ accountEmail, onSignOut }: AppProps) {
           localStorage.setItem('gantt_notes', JSON.stringify(restoredNotes));
           localStorage.setItem('gantt_notebooks', JSON.stringify(restoredNotebooks));
           localStorage.setItem('gantt_documents', JSON.stringify(restoredDocuments));
+          localStorage.setItem('marketing_clients', JSON.stringify(restoredClients));
+          localStorage.setItem('marketing_campaigns', JSON.stringify(restoredCampaigns));
+          localStorage.setItem('marketing_content_items', JSON.stringify(restoredContentItems));
+          localStorage.setItem('marketing_metrics', JSON.stringify(restoredMetrics));
+          localStorage.setItem('marketing_social_accounts', JSON.stringify(restoredSocialAccounts));
           localStorage.setItem('gantt_active_template_id', JSON.stringify(cloudState.activeTemplateId));
 
           const restoredTemplates = [
@@ -640,6 +666,11 @@ function App({ accountEmail, onSignOut }: AppProps) {
           setNotes(restoredNotes);
           setNotebooks(restoredNotebooks);
           setDocuments(restoredDocuments);
+          setClients(restoredClients);
+          setCampaigns(restoredCampaigns);
+          setContentItems(restoredContentItems);
+          setMetrics(restoredMetrics);
+          setSocialAccounts(restoredSocialAccounts);
           setActiveTemplateId(restoredTemplateId);
           setTasks(normalizeTaskProgress(restoredTasks));
           setTasksTemplateId(restoredTemplateId);
@@ -748,6 +779,11 @@ function App({ accountEmail, onSignOut }: AppProps) {
         notes,
         notebooks,
         documents,
+        clients,
+        campaigns,
+        contentItems,
+        metrics,
+        socialAccounts,
       };
 
       void saveCloudState(userId, nextState)
@@ -763,7 +799,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
         window.clearTimeout(cloudSaveTimerRef.current);
       }
     };
-  }, [activeTemplateId, archivedPlanIds, customTemplates, documents, hiddenDefaultTemplateIds, ideas, lang, notebooks, notes, planNameOverrides, reminders, showOnboarding, tasks, tasksTemplateId, teamMembers, theme]);
+  }, [activeTemplateId, archivedPlanIds, campaigns, clients, contentItems, customTemplates, documents, hiddenDefaultTemplateIds, ideas, lang, metrics, notebooks, notes, planNameOverrides, reminders, showOnboarding, socialAccounts, tasks, tasksTemplateId, teamMembers, theme]);
 
   useEffect(() => {
     if (!activeSharedPlan || !canEditActivePlan || tasksTemplateId !== activeTemplateId || !cloudHydratedRef.current || !localTasksDirtyRef.current) return;
@@ -913,6 +949,67 @@ function App({ accountEmail, onSignOut }: AppProps) {
     showToast(lang === 'uk' ? 'Ідею збережено' : 'Idea saved');
   };
 
+  const handleCreateContent = (draft: Omit<ContentItem, 'id' | 'createdAt' | 'updatedAt'>): ContentItem => {
+    const now = new Date().toISOString();
+    const item: ContentItem = { ...draft, id: createClientId('content'), createdAt: now, updatedAt: now };
+    setContentItems(previous => [item, ...previous]);
+    showToast(lang === 'uk' ? 'Контент створено' : 'Content created');
+    return item;
+  };
+
+  const handleUpdateContent = (item: ContentItem) => {
+    setContentItems(previous => previous.map(current => current.id === item.id ? { ...item, updatedAt: new Date().toISOString() } : current));
+  };
+
+  const handleDeleteContent = (contentId: string) => {
+    if (!confirm(lang === 'uk' ? 'Видалити цей контент?' : 'Delete this content?')) return;
+    setContentItems(previous => previous.filter(item => item.id !== contentId));
+    setDocuments(previous => previous.map(document => document.contentId === contentId ? { ...document, contentId: undefined } : document));
+  };
+
+  const handleRepurposeContent = (source: ContentItem) => {
+    const item = handleCreateContent({
+      ...source,
+      title: `${source.title} · ${lang === 'uk' ? 'нова версія' : 'new version'}`,
+      sourceContentId: source.id,
+      platforms: source.platforms,
+      status: 'idea',
+      publishAt: undefined,
+      postUrls: [],
+      comments: [],
+      checklist: source.checklist?.map(step => ({ ...step, id: createClientId('content_step'), completed: false })),
+    });
+    return item;
+  };
+
+  const handleConvertIdeaToContent = (ideaId: string) => {
+    const idea = ideas.find(item => item.id === ideaId);
+    if (!idea) return;
+    const content = handleCreateContent({
+      title: idea.title,
+      description: idea.description,
+      projectId: idea.projectId || idea.planId,
+      campaignId: idea.campaignId,
+      clientId: idea.clientId,
+      sourceIdeaId: idea.id,
+      platforms: ['instagram'],
+      format: 'reel',
+      status: 'idea',
+      checklist: [],
+      comments: [],
+    });
+    setIdeas(previous => previous.map(item => item.id === ideaId ? { ...item, status: 'converted', contentId: content.id, updatedAt: new Date().toISOString() } : item));
+  };
+
+  const handleConvertIdeaToTask = (ideaId: string) => {
+    const idea = ideas.find(item => item.id === ideaId);
+    if (!idea) return;
+    const projectId = idea.projectId || idea.planId || activeTemplateId;
+    if (projectId !== activeTemplateId) setActiveTemplateId(projectId);
+    handleAddTask('todo', idea.title);
+    setIdeas(previous => previous.map(item => item.id === ideaId ? { ...item, status: 'converted', updatedAt: new Date().toISOString() } : item));
+  };
+
   const handleArchiveIdea = (ideaId: string) => {
     setIdeas(previous => previous.map(idea =>
       idea.id === ideaId ? { ...idea, status: 'archived', updatedAt: new Date().toISOString() } : idea
@@ -1017,7 +1114,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
 
   const handleUploadDocument = async (
     file: File,
-    link?: Pick<WorkspaceDocument, 'noteId' | 'notebookId' | 'planId' | 'taskId'>,
+    link?: Pick<WorkspaceDocument, 'noteId' | 'notebookId' | 'planId' | 'taskId' | 'clientId' | 'campaignId' | 'contentId' | 'ideaId'>,
   ): Promise<WorkspaceDocument | null> => {
     if (!currentUserId) { showToast(lang === 'uk' ? 'Спочатку увійдіть в акаунт' : 'Sign in first', 'error'); return null; }
     if (file.size > 20 * 1024 * 1024) { showToast(lang === 'uk' ? 'Файл має бути до 20 МБ' : 'File must be under 20 MB', 'error'); return null; }
@@ -1034,6 +1131,10 @@ function App({ accountEmail, onSignOut }: AppProps) {
         taskId: link?.taskId,
         notebookId: link?.notebookId,
         noteId: link?.noteId,
+        clientId: link?.clientId,
+        campaignId: link?.campaignId,
+        contentId: link?.contentId,
+        ideaId: link?.ideaId,
         createdAt: new Date().toISOString(),
       };
       setDocuments(previous => [document, ...previous]);
@@ -2175,6 +2276,11 @@ function App({ accountEmail, onSignOut }: AppProps) {
           items={globalTaskItems}
           ideas={ideas}
           documents={documents}
+          clients={clients}
+          campaigns={campaigns}
+          contentItems={contentItems}
+          metrics={metrics}
+          socialAccounts={socialAccounts}
           remindersCount={reminders.filter(reminder => !reminder.dismissedAt).length}
           teamMembers={teamMembers}
           projectBoard={(
@@ -2220,6 +2326,16 @@ function App({ accountEmail, onSignOut }: AppProps) {
           onToggleTheme={() => setTheme(value => value === 'light' ? 'dark' : 'light')}
           onToggleLanguage={() => setLang(value => value === 'uk' ? 'en' : 'uk')}
           onSignOut={() => { void onSignOut(); }}
+          onCreateContent={handleCreateContent}
+          onUpdateContent={handleUpdateContent}
+          onDeleteContent={handleDeleteContent}
+          onRepurposeContent={handleRepurposeContent}
+          onCreateClient={client => setClients(previous => [...previous, client])}
+          onCreateCampaign={campaign => setCampaigns(previous => [...previous, campaign])}
+          onAddMetric={metric => setMetrics(previous => [...previous, metric])}
+          onUpdateAccount={account => setSocialAccounts(previous => previous.some(item => item.id === account.id) ? previous.map(item => item.id === account.id ? account : item) : [...previous, account])}
+          onConvertIdeaToContent={handleConvertIdeaToContent}
+          onConvertIdeaToTask={handleConvertIdeaToTask}
         />
 
         {selectedTask && (

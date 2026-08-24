@@ -33,6 +33,7 @@ export interface Task {
   archived?: boolean;
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   recurrence?: 'none' | 'daily' | 'weekly' | 'monthly';
+  campaignId?: string;
 }
 
 export interface MarketingTemplate {
@@ -85,6 +86,10 @@ export interface Idea {
   taskId?: string;
   tags?: string[];
   attachmentIds?: string[];
+  clientId?: string;
+  projectId?: string;
+  campaignId?: string;
+  contentId?: string;
 }
 
 export interface WorkspaceNote {
@@ -119,8 +124,99 @@ export interface WorkspaceDocument {
   taskId?: string;
   notebookId?: string;
   noteId?: string;
+  clientId?: string;
+  campaignId?: string;
+  contentId?: string;
+  ideaId?: string;
   note?: string;
   createdAt: string;
+}
+
+export interface Client {
+  id: string;
+  name: string;
+  logoUrl?: string;
+  website?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CampaignObjective = 'awareness' | 'traffic' | 'leads' | 'sales' | 'engagement' | 'retention';
+
+export interface Campaign {
+  id: string;
+  name: string;
+  clientId?: string;
+  projectId?: string;
+  objective: CampaignObjective;
+  startDate: string;
+  endDate: string;
+  status: 'planned' | 'active' | 'on_hold' | 'completed' | 'archived';
+  owner?: string;
+  channels: string[];
+  budget?: number;
+  notes?: string;
+  utm?: { source?: string; medium?: string; campaign?: string; content?: string; destinationUrl?: string };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type SocialPlatform = 'instagram' | 'facebook' | 'tiktok' | 'linkedin' | 'youtube' | 'blog' | 'email' | 'other';
+export type ContentFormat = 'reel' | 'story' | 'carousel' | 'static' | 'video' | 'short' | 'article' | 'email' | 'other';
+export type ContentStatus = 'idea' | 'brief' | 'creating' | 'review' | 'ready' | 'scheduled' | 'published';
+
+export interface ContentItem {
+  id: string;
+  title: string;
+  description?: string;
+  clientId?: string;
+  projectId?: string;
+  campaignId?: string;
+  sourceContentId?: string;
+  sourceIdeaId?: string;
+  platforms: SocialPlatform[];
+  format: ContentFormat;
+  funnelStage?: 'TOFU' | 'MOFU' | 'BOFU';
+  objective?: CampaignObjective;
+  pillar?: string;
+  hook?: string;
+  script?: string;
+  caption?: string;
+  cta?: string;
+  status: ContentStatus;
+  assignee?: string;
+  publishAt?: string;
+  postUrls?: { platform: SocialPlatform; url: string }[];
+  tags?: string[];
+  checklist?: { id: string; title: string; completed: boolean }[];
+  comments?: TaskComment[];
+  utm?: { source?: string; medium?: string; campaign?: string; content?: string; destinationUrl?: string };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type AnalyticsSource = 'ga4' | 'search_console' | 'instagram' | 'facebook' | 'tiktok' | 'linkedin' | 'meta_ads' | 'google_ads' | 'manual';
+
+export interface MetricPoint {
+  id: string;
+  source: AnalyticsSource;
+  metric: string;
+  value: number;
+  date?: string;
+  previousValue?: number;
+  clientId?: string;
+  contentId?: string;
+}
+
+export interface SocialAccount {
+  id: string;
+  platform: SocialPlatform | 'ga4' | 'search_console' | 'google_ads' | 'meta_ads';
+  accountName: string;
+  externalAccountId?: string;
+  clientId?: string;
+  connectionStatus: 'connected' | 'disconnected' | 'error';
+  connectedAt?: string;
 }
 
 export interface TeamMember {
@@ -131,5 +227,5 @@ export interface TeamMember {
 }
 
 export type ZoomLevel = 'days' | 'weeks' | 'months';
-export type ActiveTab = 'home' | 'plans' | 'all_tasks' | 'calendar' | 'ideas' | 'files' | 'settings' | 'gantt' | 'grid' | 'kanban' | 'workload' | 'notes' | 'assistant';
+export type ActiveTab = 'home' | 'plans' | 'all_tasks' | 'content' | 'analytics' | 'calendar' | 'ideas' | 'files' | 'settings' | 'gantt' | 'grid' | 'kanban' | 'workload' | 'notes' | 'assistant';
 export type Language = 'uk' | 'en';

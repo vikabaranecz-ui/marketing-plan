@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Idea, Language, MarketingTemplate, Reminder, Task, TeamMember, WorkspaceDocument, WorkspaceNote, WorkspaceNotebook } from '../types';
+import type { Campaign, Client, ContentItem, Idea, Language, MarketingTemplate, MetricPoint, Reminder, SocialAccount, Task, TeamMember, WorkspaceDocument, WorkspaceNote, WorkspaceNotebook } from '../types';
 import type { Database, Json } from './database.types';
 
 const supabaseUrl =
@@ -34,6 +34,11 @@ export interface CloudAppState {
   notes?: WorkspaceNote[];
   notebooks?: WorkspaceNotebook[];
   documents?: WorkspaceDocument[];
+  clients?: Client[];
+  campaigns?: Campaign[];
+  contentItems?: ContentItem[];
+  metrics?: MetricPoint[];
+  socialAccounts?: SocialAccount[];
 }
 
 export const isCloudAppState = (value: unknown): value is CloudAppState => {
@@ -71,6 +76,11 @@ export const isCloudAppState = (value: unknown): value is CloudAppState => {
     (state.notes === undefined || Array.isArray(state.notes)) &&
     (state.notebooks === undefined || Array.isArray(state.notebooks)) &&
     (state.documents === undefined || Array.isArray(state.documents))
+    && (state.clients === undefined || Array.isArray(state.clients))
+    && (state.campaigns === undefined || Array.isArray(state.campaigns))
+    && (state.contentItems === undefined || Array.isArray(state.contentItems))
+    && (state.metrics === undefined || Array.isArray(state.metrics))
+    && (state.socialAccounts === undefined || Array.isArray(state.socialAccounts))
   );
 };
 
