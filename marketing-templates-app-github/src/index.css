@@ -11167,3 +11167,25 @@ body {
   .excel-editor-dialog > footer { align-items: stretch; flex-direction: column; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
   .excel-editor-dialog > footer .btn { width: 100%; min-height: 48px; }
 }
+
+/* Keep the original handwritten typeface from the approved mixed-font design. */
+.simple-home-hero h1,
+.ai-hero h1,
+.mobile-screen-intro h1,
+.portfolio-view-heading h1,
+.plans-calendar-intro h1,
+.simple-page-header h1,
+.simple-section-heading h2,
+.auth-card h1,
+.dialog-header h2,
+.mobile-sheet-header h2,
+.ideas-dialog h2,
+.reminder-center-dialog h2,
+.handwriting-dialog h2,
+.note-editor-heading .knowledge-title-input,
+.handwriting-pad textarea,
+.simple-empty strong,
+.notebook-empty {
+  font-family: 'Neucha', 'Comic Sans MS', cursive;
+  font-weight: 400;
+}
