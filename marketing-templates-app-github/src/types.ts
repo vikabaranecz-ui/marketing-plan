@@ -31,6 +31,8 @@ export interface Task {
   subtasks: SubTask[];
   comments: TaskComment[];
   archived?: boolean;
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  recurrence?: 'none' | 'daily' | 'weekly' | 'monthly';
 }
 
 export interface MarketingTemplate {
@@ -43,6 +45,11 @@ export interface MarketingTemplate {
   descriptionEn: string;
   iconName: string;
   tasks: Task[];
+  client?: string;
+  owner?: string;
+  startDate?: string;
+  deadline?: string;
+  status?: 'active' | 'completed' | 'archived';
 }
 
 export type ReminderTargetType = 'plan' | 'task' | 'subtask' | 'idea';
@@ -75,6 +82,9 @@ export interface Idea {
   reviewAt?: string;
   reviewIntervalDays?: number;
   convertedPlanId?: string;
+  taskId?: string;
+  tags?: string[];
+  attachmentIds?: string[];
 }
 
 export interface WorkspaceNote {
@@ -121,5 +131,5 @@ export interface TeamMember {
 }
 
 export type ZoomLevel = 'days' | 'weeks' | 'months';
-export type ActiveTab = 'home' | 'plans' | 'all_tasks' | 'gantt' | 'grid' | 'kanban' | 'workload' | 'notes' | 'assistant';
+export type ActiveTab = 'home' | 'plans' | 'all_tasks' | 'calendar' | 'ideas' | 'files' | 'settings' | 'gantt' | 'grid' | 'kanban' | 'workload' | 'notes' | 'assistant';
 export type Language = 'uk' | 'en';

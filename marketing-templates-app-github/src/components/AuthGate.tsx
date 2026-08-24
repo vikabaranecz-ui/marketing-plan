@@ -52,6 +52,7 @@ const readPendingWorkspace = (): CloudAppState | null => {
 };
 
 export default function AuthGate({ children }: AuthGateProps) {
+  const isLocalPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1';
   const [user, setUser] = useState<User | null>(null);
   const [anonymousState, setAnonymousState] = useState<CloudAppState | null>(null);
   const [isReady, setIsReady] = useState(false);
@@ -165,6 +166,10 @@ export default function AuthGate({ children }: AuthGateProps) {
       setIsSending(false);
     }
   };
+
+  if (isLocalPreview) {
+    return children({ email: 'preview@marketing.local', signOut: async () => undefined });
+  }
 
   if (!isReady) {
     return (

@@ -30,6 +30,7 @@ import SimpleHome from './components/SimpleHome';
 import AllTasksView, { type GlobalTaskItem } from './components/AllTasksView';
 import KnowledgeHub from './components/KnowledgeHub';
 import AiAssistant from './components/AiAssistant';
+import WorkspaceShell from './components/workspace/WorkspaceShell';
 import { playReminderSound, unlockReminderSound } from './lib/reminderSound';
 import {
   enablePushNotifications,
@@ -544,6 +545,11 @@ function App({ accountEmail, onSignOut }: AppProps) {
 
   // Restore cloud state, or migrate all existing local data on first connection.
   useEffect(() => {
+    if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1') {
+      cloudHydratedRef.current = true;
+      setCloudStatus('synced');
+      return;
+    }
     let cancelled = false;
 
     const hydrateCloudMemory = async () => {
@@ -882,7 +888,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
     showToast(lang === 'uk' ? `Відкладено на ${minutes} хв` : `Snoozed for ${minutes} min`);
   };
 
-  const handleCreateIdea = (draft: Pick<Idea, 'title' | 'description' | 'planId' | 'reviewAt' | 'reviewIntervalDays'>) => {
+  const handleCreateIdea = (draft: Pick<Idea, 'title' | 'description' | 'planId' | 'taskId' | 'reviewAt' | 'reviewIntervalDays'>) => {
     const now = new Date().toISOString();
     const idea: Idea = {
       ...draft,
@@ -1129,6 +1135,15 @@ function App({ accountEmail, onSignOut }: AppProps) {
     setActiveTemplateId(planId);
   };
 
+  const handleOpenWorkspaceTask = (planId: string, taskId: string) => {
+    if (planId === activeTemplateId && tasksTemplateId === activeTemplateId) {
+      setSelectedTaskId(taskId);
+      return;
+    }
+    setPendingTodayTask({ planId, taskId });
+    setActiveTemplateId(planId);
+  };
+
   const handleCreateAiSteps = (planId: string, taskId: string) => {
     setPendingAiSteps({ planId, taskId });
     setPendingTodayTask({ planId, taskId });
@@ -1351,6 +1366,8 @@ function App({ accountEmail, onSignOut }: AppProps) {
       endDate: end,
       progress: 0,
       status: taskStatus,
+      priority: 'medium',
+      recurrence: 'none',
       assignee: teamMembers[0]?.name ?? '',
       isMilestone: false,
       color: '#6366f1',
@@ -1602,6 +1619,15 @@ function App({ accountEmail, onSignOut }: AppProps) {
 
     if (!titlePrompt) return;
 
+    const client = prompt(
+      lang === 'uk' ? 'Клієнт або бренд (необов’язково):' : 'Client or brand (optional):',
+      '',
+    )?.trim() || '';
+    const deadlinePrompt = prompt(
+      lang === 'uk' ? 'Дедлайн у форматі РРРР-ММ-ДД:' : 'Deadline in YYYY-MM-DD format:',
+      new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    )?.trim();
+
     const newPlanId = `custom_blank_${Date.now()}`;
     const today = new Date().toISOString().split('T')[0];
 
@@ -1614,6 +1640,11 @@ function App({ accountEmail, onSignOut }: AppProps) {
       descriptionUa: lang === 'uk' ? 'Створений користувачем пустий план.' : 'User-created blank plan.',
       descriptionEn: lang === 'uk' ? 'Створений користувачем пустий план.' : 'User-created blank plan.',
       iconName: 'Compass',
+      client,
+      owner: accountEmail,
+      startDate: today,
+      deadline: /^\d{4}-\d{2}-\d{2}$/.test(deadlinePrompt || '') ? deadlinePrompt : undefined,
+      status: 'active',
       tasks: [
         {
           id: `task_${Date.now()}`,
@@ -1623,6 +1654,8 @@ function App({ accountEmail, onSignOut }: AppProps) {
           endDate: today,
           progress: 0,
           status: 'todo',
+          priority: 'medium',
+          recurrence: 'none',
           assignee: teamMembers[0]?.name ?? '',
           isMilestone: false,
           color: '#6366f1',
@@ -1907,6 +1940,25 @@ function App({ accountEmail, onSignOut }: AppProps) {
       tasks: normalizeTaskProgress(activeTemplateTasks),
     };
   });
+  const archivedPlanCalendarItems: PlanCalendarItem[] = archivedTemplates.map(template => {
+    const templateTasks = getLocalStorage<Task[] | null>(`gantt_tasks_${template.id}`, null) ?? template.tasks;
+    const visibleTasks = normalizeTaskProgress(templateTasks.filter(task => !task.archived));
+    const datedTasks = visibleTasks.filter(task => task.startDate && task.endDate);
+    const fallbackDate = new Date().toISOString().split('T')[0];
+    const startDate = template.startDate || (datedTasks.length ? datedTasks.reduce((value, task) => task.startDate < value ? task.startDate : value, datedTasks[0].startDate) : fallbackDate);
+    const endDate = template.deadline || (datedTasks.length ? datedTasks.reduce((value, task) => task.endDate > value ? task.endDate : value, datedTasks[0].endDate) : fallbackDate);
+    return {
+      id: template.id,
+      title: getPlanTitle(template),
+      category: lang === 'uk' ? template.categoryUa : template.categoryEn,
+      startDate,
+      endDate,
+      progress: visibleTasks.length ? Math.round(visibleTasks.reduce((sum, task) => sum + task.progress, 0) / visibleTasks.length) : 0,
+      taskCount: visibleTasks.length,
+      color: visibleTasks.find(task => task.color)?.color ?? '#6366f1',
+      tasks: visibleTasks,
+    };
+  });
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const todayPlanGroups: TodayPlanGroup[] = allTemplates.flatMap(template => {
@@ -2103,6 +2155,149 @@ function App({ accountEmail, onSignOut }: AppProps) {
     handleResize();
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  const workspaceV2 = true;
+  if (workspaceV2) {
+    return (
+      <>
+        <WorkspaceShell
+          accountEmail={accountEmail}
+          lang={lang}
+          theme={theme}
+          activeTab={activeTab}
+          activeProjectId={activeTemplateId}
+          activeProject={activeTemplate}
+          activeProjectTitle={activeTemplateTitle}
+          activeTasks={activeTasks}
+          projects={planCalendarItems}
+          archivedProjects={archivedPlanCalendarItems}
+          archivedProjectIds={archivedPlanIds}
+          items={globalTaskItems}
+          ideas={ideas}
+          documents={documents}
+          remindersCount={reminders.filter(reminder => !reminder.dismissedAt).length}
+          teamMembers={teamMembers}
+          projectBoard={(
+            <KanbanBoard
+              tasks={filteredTasks}
+              updateTask={handleUpdateTask}
+              setSelectedTaskId={setSelectedTaskId}
+              lang={lang}
+              addTask={handleAddTask}
+              teamMembers={teamMembers}
+            />
+          )}
+          projectTimeline={(
+            <GanttChart
+              tasks={filteredTasks}
+              updateTask={handleUpdateTask}
+              selectedTaskId={selectedTaskId}
+              setSelectedTaskId={setSelectedTaskId}
+              zoomLevel={zoomLevel}
+              lang={lang}
+              addTask={() => handleAddTask('todo')}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              showSidebar={!isMobile}
+            />
+          )}
+          onNavigate={setActiveTab}
+          onSelectProject={setActiveTemplateId}
+          onOpenTask={handleOpenWorkspaceTask}
+          onCreateTask={title => handleAddTask('todo', title)}
+          onCreateProject={handleCreateBlankPlan}
+          onCreateIdea={handleCreateIdea}
+          onOpenIdeas={() => setIsIdeasOpen(true)}
+          onUploadFile={handleUploadDocument}
+          onOpenFile={document => { void handleOpenDocument(document); }}
+          onDeleteFile={document => { void handleDeleteDocument(document); }}
+          onRenameProject={projectId => { void handleRenamePlan(projectId); }}
+          onArchiveProject={handleArchivePlan}
+          onDeleteProject={projectId => { void handleDeletePlan(projectId); }}
+          onOpenArchive={() => setIsArchiveOpen(true)}
+          onOpenReminders={() => openReminderCenter({ targetType: 'plan', planId: activeTemplateId })}
+          onOpenTeam={() => setIsTeamManagerOpen(true)}
+          onToggleTheme={() => setTheme(value => value === 'light' ? 'dark' : 'light')}
+          onToggleLanguage={() => setLang(value => value === 'uk' ? 'en' : 'uk')}
+          onSignOut={() => { void onSignOut(); }}
+        />
+
+        {selectedTask && (
+          <TaskDetailsDrawer
+            task={selectedTask}
+            onClose={() => setSelectedTaskId(null)}
+            onUpdate={handleUpdateTask}
+            onClone={handleCloneTask}
+            onDelete={handleDeleteTask}
+            onArchive={handleArchiveTask}
+            tasks={activeTasks}
+            lang={lang}
+            teamMembers={teamMembers}
+            currentUserEmail={accountEmail}
+            reminders={reminders.filter(reminder => reminder.planId === activeTemplateId)}
+            onAddReminder={(targetType, subtaskId) => openReminderCenter({ targetType, planId: activeTemplateId, taskId: selectedTask.id, subtaskId })}
+          />
+        )}
+
+        {isReminderCenterOpen && (
+          <ReminderCenter
+            reminders={reminders}
+            plans={reminderPlans}
+            defaultTarget={reminderDraftTarget}
+            lang={lang}
+            onClose={() => setIsReminderCenterOpen(false)}
+            onCreate={handleCreateReminder}
+            onDelete={handleDeleteReminder}
+            onTestSound={() => { void unlockReminderSound(true); }}
+            getTargetLabel={getReminderTargetLabel}
+          />
+        )}
+
+        {isIdeasOpen && (
+          <IdeasDialog
+            ideas={ideas}
+            plans={reminderPlans.map(plan => ({ id: plan.id, title: plan.title }))}
+            lang={lang}
+            onClose={() => setIsIdeasOpen(false)}
+            onCreate={handleCreateIdea}
+            onArchive={handleArchiveIdea}
+            onDelete={handleDeleteIdea}
+            onConvert={handleConvertIdeaToPlan}
+          />
+        )}
+
+        {activeReminder && (
+          <ReminderAlert
+            reminder={activeReminder}
+            targetLabel={getReminderTargetLabel(activeReminder)}
+            lang={lang}
+            onDone={() => handleCompleteReminder(activeReminder.id)}
+            onSnooze={minutes => handleSnoozeReminder(activeReminder.id, minutes)}
+          />
+        )}
+
+        {isTeamManagerOpen && (
+          <><button className="ws-overlay" onClick={() => setIsTeamManagerOpen(false)} aria-label="Close" /><section className="ws-simple-dialog" role="dialog" aria-modal="true">
+            <header><div><h2>{lang === 'uk' ? 'Команда і доступ' : 'Team & access'}</h2><p>{lang === 'uk' ? 'Учасники бачать лише відкриті для них проєкти.' : 'Members see only projects shared with them.'}</p></div><button onClick={() => setIsTeamManagerOpen(false)}><X /></button></header>
+            {collaborationTeams.length > 0 && <select className="form-control" value={selectedCollaborationTeam?.id ?? ''} onChange={event => setSelectedTeamId(event.target.value)}>{collaborationTeams.map(team => <option value={team.id} key={team.id}>{team.name}</option>)}</select>}
+            <div className="ws-simple-list">{selectedCollaborationTeam?.members.map(member => <div key={member.userId}><span>{member.displayName.slice(0, 2).toUpperCase()}</span><p><strong>{member.displayName}</strong><small>{member.email} · {member.role}</small></p>{selectedCollaborationTeam.currentUserRole === 'owner' && member.role !== 'owner' ? <button onClick={() => void handleRemoveCollaborationMember(member.userId)}><Trash2 /></button> : null}</div>)}</div>
+            {selectedCollaborationTeam?.currentUserRole === 'owner' && <form className="ws-dialog-form" onSubmit={event => { event.preventDefault(); void handleAddCollaborationMember(); }}><input className="form-control" type="email" value={newMemberEmail} onChange={event => setNewMemberEmail(event.target.value)} placeholder="email@example.com" required /><select className="form-control" value={newMemberAccess} onChange={event => setNewMemberAccess(event.target.value as Exclude<TeamRole, 'owner'>)}><option value="editor">Editor</option><option value="viewer">Viewer</option></select><button className="btn btn-primary" disabled={isCollaborationBusy}>{lang === 'uk' ? 'Додати' : 'Add'}</button></form>}
+            <form className="ws-dialog-form create" onSubmit={event => { event.preventDefault(); void handleCreateTeam(); }}><input className="form-control" value={newTeamName} onChange={event => setNewTeamName(event.target.value)} placeholder={lang === 'uk' ? 'Назва нової команди' : 'New team name'} required /><button className="btn btn-secondary" disabled={isCollaborationBusy}><Plus />{lang === 'uk' ? 'Створити команду' : 'Create team'}</button></form>
+          </section></>
+        )}
+
+        {isArchiveOpen && (
+          <><button className="ws-overlay" onClick={() => setIsArchiveOpen(false)} aria-label="Close" /><section className="ws-simple-dialog" role="dialog" aria-modal="true">
+            <header><div><h2>{lang === 'uk' ? 'Архів' : 'Archive'}</h2><p>{lang === 'uk' ? 'Відновлюйте без втрати даних.' : 'Restore without losing data.'}</p></div><button onClick={() => setIsArchiveOpen(false)}><X /></button></header>
+            <h3>{lang === 'uk' ? 'Проєкти' : 'Projects'}</h3><div className="ws-simple-list">{archivedTemplates.map(template => <div key={template.id}><span><Archive /></span><p><strong>{getPlanTitle(template)}</strong><small>{lang === 'uk' ? template.categoryUa : template.categoryEn}</small></p><button onClick={() => handleRestorePlan(template.id)}><RotateCcw /></button><button onClick={() => void handleDeletePlan(template.id)}><Trash2 /></button></div>)}{archivedTemplates.length === 0 && <p className="ws-dialog-empty">{lang === 'uk' ? 'Архівованих проєктів немає' : 'No archived projects'}</p>}</div>
+            <h3>{lang === 'uk' ? 'Завдання поточного проєкту' : 'Current project tasks'}</h3><div className="ws-simple-list">{archivedTasks.map(task => <div key={task.id}><span><ListTodo /></span><p><strong>{task.title}</strong><small>{task.endDate}</small></p><button onClick={() => handleRestoreTask(task.id)}><RotateCcw /></button></div>)}{archivedTasks.length === 0 && <p className="ws-dialog-empty">{lang === 'uk' ? 'Архівованих завдань немає' : 'No archived tasks'}</p>}</div>
+          </section></>
+        )}
+
+        {toastMessage && <div className={`ws-toast ${toastMessage.type}`}>{toastMessage.text}</div>}
+      </>
+    );
+  }
 
   return (
     <div className="app-container">

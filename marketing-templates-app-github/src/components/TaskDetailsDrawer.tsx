@@ -366,6 +366,27 @@ export default function TaskDetailsDrawer({
             </div>
           </div>
 
+          <div className="row-2">
+            <div className="form-group">
+              <label>{lang === 'uk' ? 'Пріоритет' : 'Priority'}</label>
+              <select className="form-control" value={task.priority || 'medium'} onChange={e => handleFieldChange('priority', e.target.value as Task['priority'])}>
+                <option value="low">{lang === 'uk' ? 'Низький' : 'Low'}</option>
+                <option value="medium">{lang === 'uk' ? 'Середній' : 'Medium'}</option>
+                <option value="high">{lang === 'uk' ? 'Високий' : 'High'}</option>
+                <option value="urgent">{lang === 'uk' ? 'Терміновий' : 'Urgent'}</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label>{lang === 'uk' ? 'Повторення' : 'Recurrence'}</label>
+              <select className="form-control" value={task.recurrence || 'none'} onChange={e => handleFieldChange('recurrence', e.target.value as Task['recurrence'])}>
+                <option value="none">{lang === 'uk' ? 'Не повторювати' : 'Do not repeat'}</option>
+                <option value="daily">{lang === 'uk' ? 'Щодня' : 'Daily'}</option>
+                <option value="weekly">{lang === 'uk' ? 'Щотижня' : 'Weekly'}</option>
+                <option value="monthly">{lang === 'uk' ? 'Щомісяця' : 'Monthly'}</option>
+              </select>
+            </div>
+          </div>
+
           {/* Automatic progress */}
           {!task.isMilestone && (
             <div className="form-group">
