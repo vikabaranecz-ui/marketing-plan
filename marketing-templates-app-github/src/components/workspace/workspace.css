@@ -1,4 +1,4 @@
-.workspace-v2 { --ws-bg:#f6f7f9; --ws-panel:#fff; --ws-text:#172033; --ws-muted:#6f7787; --ws-line:#e5e8ee; --ws-primary:#5865f2; --ws-soft:#eef0ff; min-height:100dvh; background:var(--ws-bg); color:var(--ws-text); display:grid; grid-template-columns:232px minmax(0,1fr); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+.workspace-v2 { --ws-bg:#f6f7f9; --ws-panel:#fff; --ws-text:#172033; --ws-muted:#6f7787; --ws-line:#e5e8ee; --ws-primary:#5865f2; --ws-soft:#eef0ff; width:100%; height:100dvh; min-height:0; overflow-x:hidden; overflow-y:auto; overscroll-behavior-y:contain; -webkit-overflow-scrolling:touch; background:var(--ws-bg); color:var(--ws-text); display:grid; grid-template-columns:232px minmax(0,1fr); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
 [data-theme="dark"] .workspace-v2 { --ws-bg:#111318; --ws-panel:#191c23; --ws-text:#f4f5f7; --ws-muted:#9ba3b3; --ws-line:#2a2e38; --ws-soft:#252942; }
 .workspace-v2 * { box-sizing:border-box; }
 .workspace-v2 button,.workspace-v2 input,.workspace-v2 select { font:inherit; }
