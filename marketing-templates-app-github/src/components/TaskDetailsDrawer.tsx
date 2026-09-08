@@ -273,8 +273,6 @@ export default function TaskDetailsDrawer({
                 type="date"
                 className="form-control"
                 value={task.startDate}
-                disabled={task.subtasks && task.subtasks.length > 0}
-                style={{ opacity: (task.subtasks && task.subtasks.length > 0) ? 0.6 : 1 }}
                 onChange={e => handleStartDateChange(e.target.value)}
               />
             </div>
@@ -284,16 +282,18 @@ export default function TaskDetailsDrawer({
                 type="date"
                 className="form-control"
                 value={task.endDate}
-                disabled={task.isMilestone || (task.subtasks && task.subtasks.length > 0)}
-                style={{ opacity: (task.isMilestone || (task.subtasks && task.subtasks.length > 0)) ? 0.6 : 1 }}
+                disabled={task.isMilestone}
+                style={{ opacity: task.isMilestone ? 0.6 : 1 }}
                 onChange={e => handleEndDateChange(e.target.value)}
               />
             </div>
           </div>
           
           {task.subtasks && task.subtasks.length > 0 && (
-            <div style={{ fontSize: '0.72rem', color: '#b57a3d', marginTop: '-4px', marginBottom: '8px', fontWeight: 600 }}>
-              * {lang === 'uk' ? 'Дати розраховуються автоматично на основі підзавдань.' : 'Dates are calculated automatically based on subtasks.'}
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '-4px', marginBottom: '8px', fontWeight: 600 }}>
+              {lang === 'uk'
+                ? 'Зміна дат завдання оновлює всі календарі й Gantt. Зміна дат підзавдань автоматично оновлює діапазон завдання.'
+                : 'Task date changes update every calendar and Gantt. Subtask date changes automatically update the task range.'}
             </div>
           )}
 

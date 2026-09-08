@@ -1615,7 +1615,21 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const handleUpdateTask = (updatedTask: Task) => {
     if (!canEditActivePlan) return showToast(lang === 'uk' ? 'У вас доступ лише для перегляду' : 'You have view-only access', 'error');
     setLocalTasks(prev => {
-      const syncedTask = withAutomaticTaskProgress(syncParentTaskDates(updatedTask));
+      const previousTask = prev.find(task => task.id === updatedTask.id);
+      const parentDatesChanged = !!previousTask && (
+        previousTask.startDate !== updatedTask.startDate
+        || previousTask.endDate !== updatedTask.endDate
+      );
+      const previousSubtaskDates = previousTask?.subtasks.map(subtask => `${subtask.id}:${subtask.startDate ?? ''}:${subtask.endDate ?? ''}`).join('|') ?? '';
+      const updatedSubtaskDates = updatedTask.subtasks.map(subtask => `${subtask.id}:${subtask.startDate ?? ''}:${subtask.endDate ?? ''}`).join('|');
+      const subtaskDatesChanged = previousSubtaskDates !== updatedSubtaskDates;
+
+      // A direct task/Gantt date edit is authoritative. When only subtask dates
+      // changed, expand the parent range so every date-based view stays aligned.
+      const reconciledTask = subtaskDatesChanged && !parentDatesChanged
+        ? syncParentTaskDates(updatedTask)
+        : updatedTask;
+      const syncedTask = withAutomaticTaskProgress(reconciledTask);
       const replaced = prev.map(t => t.id === syncedTask.id ? syncedTask : t);
       
       // Save details changes to history with a rate limit to group keystrokes
