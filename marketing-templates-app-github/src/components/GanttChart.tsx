@@ -47,6 +47,13 @@ const getMonthName = (monthIndex: number, lang: Language): string => {
   return lang === 'uk' ? monthsUa[monthIndex] : monthsEn[monthIndex];
 };
 
+const getMonthLabel = (date: Date, lang: Language) => new Intl.DateTimeFormat(
+  lang === 'uk' ? 'uk-UA' : 'en-US',
+  { month: 'long', year: 'numeric' }
+).format(date);
+
+const startOfMondayWeek = (date: Date) => addDays(date, -((date.getDay() + 6) % 7));
+
 const getDayOfWeekLetter = (date: Date, lang: Language): string => {
   const lettersUa = ['Н', 'П', 'В', 'С', 'Ч', 'П', 'С']; // 0 = Sunday (Неділя), 1 = Monday (Понеділок)...
   const lettersEn = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -190,7 +197,13 @@ export default function GanttChart({
     };
   };
 
-  const { start: timelineStart, end: timelineEnd } = getTimelineBounds();
+  const rawBounds = getTimelineBounds();
+  const timelineStart = zoomLevel === 'weeks'
+    ? startOfMondayWeek(rawBounds.start)
+    : zoomLevel === 'months'
+      ? new Date(rawBounds.start.getFullYear(), rawBounds.start.getMonth(), 1)
+      : rawBounds.start;
+  const timelineEnd = rawBounds.end;
   const totalDays = getDaysBetween(timelineStart, timelineEnd) + 1;
 
   // 2. Set grid cell configurations based on Zoom Level
@@ -272,12 +285,12 @@ export default function GanttChart({
         );
       }
     } else if (zoomLevel === 'weeks') {
-      const weeksCount = Math.ceil(totalDays / 7);
+      const alignedStart = startOfMondayWeek(timelineStart);
+      const weeksCount = Math.ceil((getDaysBetween(alignedStart, timelineEnd) + 1) / 7);
       for (let i = 0; i < weeksCount; i++) {
-        const weekStartDate = addDays(timelineStart, i * 7);
-        const monthIndex = weekStartDate.getMonth();
-        const dayNum = weekStartDate.getDate();
-        const isToday = i === Math.floor(getDaysBetween(timelineStart, todayDate) / 7);
+        const weekStartDate = addDays(alignedStart, i * 7);
+        const weekEndDate = addDays(weekStartDate, 6);
+        const isToday = todayDate >= weekStartDate && todayDate <= weekEndDate;
         
         cells.push(
           <div 
@@ -285,33 +298,33 @@ export default function GanttChart({
             className={`timeline-header-cell ${isToday ? 'today' : ''}`}
             style={{ width: `${cellWidth}px` }}
           >
-            <span className="top-lbl">{getMonthName(monthIndex, lang)}</span>
+            <span className="top-lbl">{getMonthName(weekStartDate.getMonth(), lang)}</span>
             <span className="bottom-lbl">
-              {lang === 'uk' ? 'Тиж.' : 'W'}{i + 1} ({dayNum})
+              {weekStartDate.getDate()}–{weekEndDate.getDate()}
             </span>
             {isToday && <span className="timeline-today-badge">{lang === 'uk' ? 'Сьогодні' : 'Today'} · {todayDate.getDate()}</span>}
           </div>
         );
       }
     } else if (zoomLevel === 'months') {
-      const monthsCount = Math.ceil(totalDays / 30);
-      for (let i = 0; i < monthsCount; i++) {
-        const monthStartDate = addDays(timelineStart, i * 30);
-        const monthIndex = monthStartDate.getMonth();
-        const year = monthStartDate.getFullYear();
-        const isToday = i === Math.floor(getDaysBetween(timelineStart, todayDate) / 30);
+      let monthStartDate = new Date(timelineStart.getFullYear(), timelineStart.getMonth(), 1);
+      while (monthStartDate <= timelineEnd) {
+        const nextMonth = new Date(monthStartDate.getFullYear(), monthStartDate.getMonth() + 1, 1);
+        const daysInMonth = getDaysBetween(monthStartDate, nextMonth);
+        const isToday = todayDate >= monthStartDate && todayDate < nextMonth;
         
         cells.push(
           <div 
-            key={`h-month-${i}`} 
+            key={`h-month-${formatLocalDate(monthStartDate)}`}
             className={`timeline-header-cell ${isToday ? 'today' : ''}`}
-            style={{ width: `${cellWidth}px` }}
+            style={{ width: `${daysInMonth * pixelsPerDay}px` }}
           >
-            <span className="top-lbl">{year}</span>
-            <span className="bottom-lbl">{getMonthName(monthIndex, lang)}</span>
+            <span className="top-lbl">{getMonthLabel(monthStartDate, lang)}</span>
+            <span className="bottom-lbl">{daysInMonth} {lang === 'uk' ? 'днів' : 'days'}</span>
             {isToday && <span className="timeline-today-badge">{lang === 'uk' ? 'Сьогодні' : 'Today'} · {todayDate.getDate()}</span>}
           </div>
         );
+        monthStartDate = nextMonth;
       }
     }
     
@@ -319,8 +332,8 @@ export default function GanttChart({
   };
 
   // 4. Drag & Resize mouse event handlers
-  const handleBarMouseDown = (
-    e: React.MouseEvent,
+  const handleBarPointerDown = (
+    e: React.PointerEvent,
     row: RowItem,
     action: 'drag' | 'resize' | 'resize-left'
   ) => {
@@ -347,8 +360,8 @@ export default function GanttChart({
   };
 
   // Handle click down on connector dot
-  const handleConnectorMouseDown = (
-    e: React.MouseEvent,
+  const handleConnectorPointerDown = (
+    e: React.PointerEvent,
     row: RowItem,
     direction: 'left' | 'right',
     startOffset: number,
@@ -372,7 +385,7 @@ export default function GanttChart({
   };
 
   useEffect(() => {
-    const handleGlobalMouseMove = (e: MouseEvent) => {
+    const handleGlobalPointerMove = (e: PointerEvent) => {
       if (!dragState) return;
 
       const deltaX = e.clientX - dragState.initialMouseX;
@@ -523,7 +536,7 @@ export default function GanttChart({
       }
     };
 
-    const handleGlobalMouseUp = () => {
+    const handleGlobalPointerUp = () => {
       if (dragState) {
         setDragState(null);
         document.body.style.cursor = '';
@@ -532,13 +545,15 @@ export default function GanttChart({
     };
 
     if (dragState) {
-      window.addEventListener('mousemove', handleGlobalMouseMove);
-      window.addEventListener('mouseup', handleGlobalMouseUp);
+      window.addEventListener('pointermove', handleGlobalPointerMove);
+      window.addEventListener('pointerup', handleGlobalPointerUp);
+      window.addEventListener('pointercancel', handleGlobalPointerUp);
     }
 
     return () => {
-      window.removeEventListener('mousemove', handleGlobalMouseMove);
-      window.removeEventListener('mouseup', handleGlobalMouseUp);
+      window.removeEventListener('pointermove', handleGlobalPointerMove);
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
+      window.removeEventListener('pointercancel', handleGlobalPointerUp);
     };
   }, [dragState, onDragEnd, pixelsPerDay, tasks, updateTask]);
 
@@ -546,7 +561,7 @@ export default function GanttChart({
   useEffect(() => {
     if (!connectState) return;
 
-    const handleConnectMouseMove = (e: MouseEvent) => {
+    const handleConnectPointerMove = (e: PointerEvent) => {
       const rowsEl = document.querySelector('.gantt-timeline-rows');
       const rect = rowsEl?.getBoundingClientRect();
       if (rect) {
@@ -556,7 +571,7 @@ export default function GanttChart({
       }
     };
 
-    const handleConnectMouseUp = (e: MouseEvent) => {
+    const handleConnectPointerUp = (e: PointerEvent) => {
       const rowsEl = document.querySelector('.gantt-timeline-rows');
       const rect = rowsEl?.getBoundingClientRect();
       if (rect) {
@@ -580,12 +595,14 @@ export default function GanttChart({
       setConnectState(null);
     };
 
-    window.addEventListener('mousemove', handleConnectMouseMove);
-    window.addEventListener('mouseup', handleConnectMouseUp);
+    window.addEventListener('pointermove', handleConnectPointerMove);
+    window.addEventListener('pointerup', handleConnectPointerUp);
+    window.addEventListener('pointercancel', handleConnectPointerUp);
 
     return () => {
-      window.removeEventListener('mousemove', handleConnectMouseMove);
-      window.removeEventListener('mouseup', handleConnectMouseUp);
+      window.removeEventListener('pointermove', handleConnectPointerMove);
+      window.removeEventListener('pointerup', handleConnectPointerUp);
+      window.removeEventListener('pointercancel', handleConnectPointerUp);
     };
   }, [connectState, rowItems, tasks, updateTask]);
 
@@ -687,6 +704,9 @@ export default function GanttChart({
 
   return (
     <div className={`gantt-container ${showSidebar ? '' : 'sidebar-collapsed'}`}>
+      <div className="gantt-mobile-agenda">
+        {rowItems.map(item => <button key={`agenda-${item.id}`} onClick={() => setSelectedTaskId(item.isSubtask ? item.parentId! : item.id)}><time>{item.startDate === item.endDate ? item.startDate : `${item.startDate} — ${item.endDate}`}</time><strong>{item.title}</strong><small>{item.assignee || (lang === 'uk' ? 'Без виконавця' : 'Unassigned')} · {item.status}</small></button>)}
+      </div>
       {/* 1. Left GanttPRO-style task grid */}
       <div className={`gantt-sidebar gantt-grid-sidebar ${showSidebar ? '' : 'collapsed'}`}>
         <div className="gantt-grid-header">
@@ -893,7 +913,7 @@ export default function GanttChart({
                       backgroundColor: item.color || '#64748b',
                       border: isSelected ? '2px solid #fff' : '1px solid rgba(255, 255, 255, 0.15)'
                     }}
-                    onMouseDown={(e) => handleBarMouseDown(e, item, 'drag')}
+                    onPointerDown={(e) => handleBarPointerDown(e, item, 'drag')}
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedTaskId(item.id);
@@ -920,22 +940,22 @@ export default function GanttChart({
 
                     <div
                       className="gantt-resize-handle left-resize-handle"
-                      onMouseDown={(e) => handleBarMouseDown(e, item, 'resize-left')}
+                      onPointerDown={(e) => handleBarPointerDown(e, item, 'resize-left')}
                     />
                     <div
                       className="gantt-resize-handle"
-                      onMouseDown={(e) => handleBarMouseDown(e, item, 'resize')}
+                      onPointerDown={(e) => handleBarPointerDown(e, item, 'resize')}
                     />
 
                     {/* Dependency Dots on Hover */}
                     <div 
                       className="gantt-connector-dot left-dot" 
-                      onMouseDown={(e) => handleConnectorMouseDown(e, item, 'left', startOffset, width, index)}
+                      onPointerDown={(e) => handleConnectorPointerDown(e, item, 'left', startOffset, width, index)}
                       title={lang === 'uk' ? 'Перетягніть для зв\'язку' : 'Drag to link'}
                     />
                     <div 
                       className="gantt-connector-dot right-dot" 
-                      onMouseDown={(e) => handleConnectorMouseDown(e, item, 'right', startOffset, width, index)}
+                      onPointerDown={(e) => handleConnectorPointerDown(e, item, 'right', startOffset, width, index)}
                       title={lang === 'uk' ? 'Перетягніть для зв\'язку' : 'Drag to link'}
                     />
                   </div>
@@ -955,7 +975,7 @@ export default function GanttChart({
                       display: 'flex',
                       alignItems: 'center'
                     }}
-                    onMouseDown={(e) => handleBarMouseDown(e, item, 'drag')}
+                    onPointerDown={(e) => handleBarPointerDown(e, item, 'drag')}
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedTaskId(item.parentId!);
@@ -983,23 +1003,23 @@ export default function GanttChart({
                     <div
                       className="gantt-resize-handle left-resize-handle"
                       style={{ height: '100%' }}
-                      onMouseDown={(e) => handleBarMouseDown(e, item, 'resize-left')}
+                      onPointerDown={(e) => handleBarPointerDown(e, item, 'resize-left')}
                     />
                     <div
                       className="gantt-resize-handle"
                       style={{ height: '100%' }}
-                      onMouseDown={(e) => handleBarMouseDown(e, item, 'resize')}
+                      onPointerDown={(e) => handleBarPointerDown(e, item, 'resize')}
                     />
 
                     {/* Dependency Dots on Hover */}
                     <div 
                       className="gantt-connector-dot left-dot" 
-                      onMouseDown={(e) => handleConnectorMouseDown(e, item, 'left', startOffset, width, index)}
+                      onPointerDown={(e) => handleConnectorPointerDown(e, item, 'left', startOffset, width, index)}
                       title={lang === 'uk' ? 'Перетягніть для зв\'язку' : 'Drag to link'}
                     />
                     <div 
                       className="gantt-connector-dot right-dot" 
-                      onMouseDown={(e) => handleConnectorMouseDown(e, item, 'right', startOffset, width, index)}
+                      onPointerDown={(e) => handleConnectorPointerDown(e, item, 'right', startOffset, width, index)}
                       title={lang === 'uk' ? 'Перетягніть для зв\'язку' : 'Drag to link'}
                     />
                   </div>
@@ -1013,7 +1033,7 @@ export default function GanttChart({
                       backgroundColor: item.color || 'var(--primary)',
                       border: isSelected ? '2px solid #fff' : '1px solid rgba(255, 255, 255, 0.15)'
                     }}
-                    onMouseDown={(e) => handleBarMouseDown(e, item, 'drag')}
+                    onPointerDown={(e) => handleBarPointerDown(e, item, 'drag')}
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedTaskId(item.id);
@@ -1040,22 +1060,22 @@ export default function GanttChart({
 
                     <div
                       className="gantt-resize-handle left-resize-handle"
-                      onMouseDown={(e) => handleBarMouseDown(e, item, 'resize-left')}
+                      onPointerDown={(e) => handleBarPointerDown(e, item, 'resize-left')}
                     />
                     <div
                       className="gantt-resize-handle"
-                      onMouseDown={(e) => handleBarMouseDown(e, item, 'resize')}
+                      onPointerDown={(e) => handleBarPointerDown(e, item, 'resize')}
                     />
 
                     {/* Dependency Dots on Hover */}
                     <div 
                       className="gantt-connector-dot left-dot" 
-                      onMouseDown={(e) => handleConnectorMouseDown(e, item, 'left', startOffset, width, index)}
+                      onPointerDown={(e) => handleConnectorPointerDown(e, item, 'left', startOffset, width, index)}
                       title={lang === 'uk' ? 'Перетягніть для зв\'язку' : 'Drag to link'}
                     />
                     <div 
                       className="gantt-connector-dot right-dot" 
-                      onMouseDown={(e) => handleConnectorMouseDown(e, item, 'right', startOffset, width, index)}
+                      onPointerDown={(e) => handleConnectorPointerDown(e, item, 'right', startOffset, width, index)}
                       title={lang === 'uk' ? 'Перетягніть для зв\'язку' : 'Drag to link'}
                     />
                   </div>

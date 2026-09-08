@@ -188,6 +188,7 @@ export interface ContentItem {
   assignee?: string;
   publishAt?: string;
   postUrls?: { platform: SocialPlatform; url: string }[];
+  externalPosts?: { provider: SocialPlatform; externalId: string; url?: string }[];
   tags?: string[];
   checklist?: { id: string; title: string; completed: boolean }[];
   comments?: TaskComment[];

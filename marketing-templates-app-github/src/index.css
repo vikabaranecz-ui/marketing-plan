@@ -10887,6 +10887,17 @@ body {
 }
 
 /* Today is visible at every Gantt level and zoom. */
+.gantt-mobile-agenda { display: none; }
+@media (max-width: 640px) {
+  .gantt-container { display: block; height: auto; min-height: 0; overflow: visible; }
+  .gantt-container > .gantt-sidebar,
+  .gantt-container > .gantt-canvas { display: none; }
+  .gantt-mobile-agenda { display: flex; flex-direction: column; gap: 8px; padding: 10px; }
+  .gantt-mobile-agenda button { width: 100%; min-height: 76px; padding: 12px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--bg-card); color: var(--text-primary); display: grid; grid-template-columns: 108px minmax(0,1fr); gap: 4px 12px; text-align: left; }
+  .gantt-mobile-agenda time { grid-row: 1 / 3; font-size: .72rem; color: var(--primary); }
+  .gantt-mobile-agenda strong { font-size: .9rem; }
+  .gantt-mobile-agenda small { color: var(--text-muted); }
+}
 .timeline-today-badge {
   margin-top: 3px;
   padding: 2px 5px;

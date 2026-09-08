@@ -8,6 +8,7 @@ import {
 import type { ActiveTab, Campaign, Client, ContentItem, Idea, Language, MarketingTemplate, MetricPoint, SocialAccount, Task, WorkspaceDocument } from '../../types';
 import type { GlobalTaskItem } from '../AllTasksView';
 import type { PlanCalendarItem } from '../PlansCalendarView';
+import { selectActiveTodayTasks, selectDueTodayTasks, selectOverdueTasks, selectUpcomingTasks } from '../../domain/tasks/selectors';
 import './workspace.css';
 const MarketingModules = lazy(() => import('./MarketingModules'));
 
@@ -129,13 +130,14 @@ export default function WorkspaceShell(props: WorkspaceShellProps) {
 
   const today = localDate();
   const openItems = items.filter(item => item.task.status !== 'done');
-  const dueToday = openItems.filter(item => item.task.startDate <= today && item.task.endDate >= today);
-  const overdue = openItems.filter(item => item.task.endDate < today);
+  const dueToday = selectDueTodayTasks(items, today);
+  const activeToday = selectActiveTodayTasks(items, today).filter(item => item.task.endDate !== today);
+  const overdue = selectOverdueTasks(items, today);
   const inProgress = openItems.filter(item => item.task.status === 'in_progress');
   const inReview = openItems.filter(item => item.task.status === 'in_review');
   const contentToday = contentItems.filter(item => item.publishAt?.slice(0, 10) === today || item.status === 'review');
   const scheduledToday = contentItems.filter(item => item.status === 'scheduled' && item.publishAt?.slice(0, 10) === today);
-  const upcoming = openItems.filter(item => item.task.startDate > today).sort((a, b) => a.task.startDate.localeCompare(b.task.startDate));
+  const upcoming = selectUpcomingTasks(items, today);
   const activeProjectData = projects.find(project => project.id === activeProjectId);
 
   useEffect(() => {
@@ -183,6 +185,7 @@ export default function WorkspaceShell(props: WorkspaceShellProps) {
         <div className="ws-section-heading"><div><h2>{lang === 'uk' ? 'Пріоритети' : 'Priorities'}</h2><p>{lang === 'uk' ? 'Сьогодні та прострочені' : 'Today and overdue'}</p></div><button onClick={() => navigate('all_tasks')}>{lang === 'uk' ? 'Усі завдання' : 'All tasks'}<ChevronRight size={15} /></button></div>
         <div className="ws-task-list">{[...overdue, ...dueToday.filter(item => !overdue.includes(item))].slice(0, 8).map(item => <TaskRow item={item} lang={lang} onOpen={() => onOpenTask(item.planId, item.task.id)} key={`${item.planId}-${item.task.id}`} />)}{dueToday.length === 0 && overdue.length === 0 ? <div className="ws-empty"><CheckCircle2 /><strong>{lang === 'uk' ? 'На сьогодні все виконано' : 'All clear for today'}</strong><span>{lang === 'uk' ? 'Можна взяти наступне завдання.' : 'You can pick the next task.'}</span></div> : null}</div>
       </section>
+      {activeToday.length ? <section className="ws-panel"><div className="ws-section-heading"><div><h2>{lang === 'uk' ? 'Активні сьогодні' : 'Active today'}</h2><p>{lang === 'uk' ? 'Багатоденні завдання в роботі' : 'Multi-day work currently active'}</p></div></div><div className="ws-task-list">{activeToday.slice(0, 5).map(item => <TaskRow item={item} lang={lang} onOpen={() => onOpenTask(item.planId, item.task.id)} key={`${item.planId}-${item.task.id}`} />)}</div></section> : null}
       <section className="ws-panel">
         <div className="ws-section-heading"><div><h2>{lang === 'uk' ? 'Контент сьогодні' : 'Today content'}</h2><p>{lang === 'uk' ? 'Перевірити, погодити або опублікувати' : 'Review, approve or publish'}</p></div><button onClick={() => navigate('content')}>{lang === 'uk' ? 'Відкрити Content' : 'Open Content'}<ChevronRight size={15} /></button></div>
         <div className="ws-today-content">{contentToday.slice(0, 5).map(item => <button onClick={() => navigate('content')} key={item.id}><span className={`ws-content-platform ${item.platforms[0]}`}>{item.platforms[0]}</span><span><strong>{item.title}</strong><small>{item.status === 'review' ? (lang === 'uk' ? 'Потрібна перевірка' : 'Needs review') : item.publishAt ? new Intl.DateTimeFormat(lang === 'uk' ? 'uk-UA' : 'en-US', { hour: '2-digit', minute: '2-digit' }).format(new Date(item.publishAt)) : ''}</small></span><b>{item.status}</b><ChevronRight /></button>)}{contentToday.length === 0 ? <div className="ws-empty compact"><CheckCircle2 /><span>{lang === 'uk' ? 'На сьогодні немає контент-дій' : 'No content actions today'}</span></div> : null}</div>

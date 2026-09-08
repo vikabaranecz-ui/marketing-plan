@@ -171,6 +171,15 @@ function App({ accountEmail, onSignOut }: AppProps) {
   );
   
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [taskCollections, setTaskCollections] = useState<Record<string, Task[]>>(() => {
+    const collections: Record<string, Task[]> = {};
+    for (let index = 0; index < localStorage.length; index += 1) {
+      const key = localStorage.key(index);
+      if (!key?.startsWith('gantt_tasks_')) continue;
+      try { collections[key.slice('gantt_tasks_'.length)] = JSON.parse(localStorage.getItem(key) || '[]'); } catch { /* persistence fallback */ }
+    }
+    return collections;
+  });
   const [tasksTemplateId, setTasksTemplateId] = useState(activeTemplateId);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [pendingTodayTask, setPendingTodayTask] = useState<{ planId: string; taskId: string } | null>(null);
@@ -260,9 +269,11 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const setLocalTasks = (nextTasks: SetStateAction<Task[]>) => {
     localTasksDirtyRef.current = true;
     localTasksRevisionRef.current += 1;
-    setTasks(previous => normalizeTaskProgress(
-      typeof nextTasks === 'function' ? nextTasks(previous) : nextTasks
-    ));
+    setTasks(previous => {
+      const normalized = normalizeTaskProgress(typeof nextTasks === 'function' ? nextTasks(previous) : nextTasks);
+      setTaskCollections(collections => ({ ...collections, [activeTemplateId]: normalized }));
+      return normalized;
+    });
   };
 
   const resetPullGesture = () => {
@@ -463,15 +474,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
       || localTasksDirtyRef.current
       || sharedSaveInFlightRevisionRef.current !== null
     )) return;
-    const savedTasks = localStorage.getItem(`gantt_tasks_${activeTemplateId}`);
-    let nextTasks = activeSharedPlan?.tasks ?? activeTemplate.tasks;
-    if (savedTasks && !activeSharedPlan) {
-      try {
-        nextTasks = JSON.parse(savedTasks);
-      } catch {
-        nextTasks = activeTemplate.tasks;
-      }
-    }
+    const nextTasks = activeSharedPlan?.tasks ?? taskCollections[activeTemplateId] ?? activeTemplate.tasks;
     setTasks(normalizeTaskProgress(nextTasks));
     setTasksTemplateId(activeTemplateId);
     localStorage.setItem('gantt_active_template_id', JSON.stringify(activeTemplateId));
@@ -481,7 +484,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
       setHistory([]); // Reset undo history stack only on an actual project swap.
     }
     previousActiveTemplateIdRef.current = activeTemplateId;
-  }, [activeTemplateId, activeTemplate.tasks, activeSharedPlan]);
+  }, [activeTemplateId, activeTemplate.tasks, activeSharedPlan, taskCollections]);
 
   useEffect(() => {
     if (!pendingTodayTask || pendingTodayTask.planId !== activeTemplateId || tasksTemplateId !== activeTemplateId) return;
@@ -673,6 +676,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
           setSocialAccounts(restoredSocialAccounts);
           setActiveTemplateId(restoredTemplateId);
           setTasks(normalizeTaskProgress(restoredTasks));
+          setTaskCollections(cloudState.tasksByTemplate);
           setTasksTemplateId(restoredTemplateId);
         }
 
@@ -758,8 +762,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
       const tasksByTemplate = Object.fromEntries(
         templates.map(template => {
           if (template.id === activeTemplateId) return [template.id, tasks];
-          const stored = getLocalStorage<Task[] | null>(`gantt_tasks_${template.id}`, null);
-          return [template.id, stored ?? template.tasks];
+          return [template.id, taskCollections[template.id] ?? template.tasks];
         }),
       );
       const nextState: CloudAppState = {
@@ -799,7 +802,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
         window.clearTimeout(cloudSaveTimerRef.current);
       }
     };
-  }, [activeTemplateId, archivedPlanIds, campaigns, clients, contentItems, customTemplates, documents, hiddenDefaultTemplateIds, ideas, lang, metrics, notebooks, notes, planNameOverrides, reminders, showOnboarding, socialAccounts, tasks, tasksTemplateId, teamMembers, theme]);
+  }, [activeTemplateId, archivedPlanIds, campaigns, clients, contentItems, customTemplates, documents, hiddenDefaultTemplateIds, ideas, lang, metrics, notebooks, notes, planNameOverrides, reminders, showOnboarding, socialAccounts, taskCollections, tasks, tasksTemplateId, teamMembers, theme]);
 
   useEffect(() => {
     if (!activeSharedPlan || !canEditActivePlan || tasksTemplateId !== activeTemplateId || !cloudHydratedRef.current || !localTasksDirtyRef.current) return;
@@ -1996,7 +1999,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
     const templateTasks = template.id === activeTemplateId
       ? tasks
       : sharedPlanViews.find(view => view.template.id === template.id)?.plan.tasks
-        ?? getLocalStorage<Task[] | null>(`gantt_tasks_${template.id}`, null)
+        ?? taskCollections[template.id]
         ?? template.tasks;
     const planColor = templateTasks.find(task => task.color)?.color ?? '#6366f1';
     return normalizeTaskProgress(templateTasks)
@@ -2029,7 +2032,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const planCalendarItems: PlanCalendarItem[] = allTemplates.map(template => {
     const templateTasks = template.id === activeTemplateId
       ? tasks
-      : getLocalStorage<Task[] | null>(`gantt_tasks_${template.id}`, null) ?? template.tasks;
+      : taskCollections[template.id] ?? template.tasks;
     const activeTemplateTasks = templateTasks.filter(task => !task.archived);
     const datedTasks = activeTemplateTasks.filter(task => task.startDate && task.endDate);
     const today = new Date().toISOString().split('T')[0];
@@ -2056,7 +2059,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
     };
   });
   const archivedPlanCalendarItems: PlanCalendarItem[] = archivedTemplates.map(template => {
-    const templateTasks = getLocalStorage<Task[] | null>(`gantt_tasks_${template.id}`, null) ?? template.tasks;
+    const templateTasks = taskCollections[template.id] ?? template.tasks;
     const visibleTasks = normalizeTaskProgress(templateTasks.filter(task => !task.archived));
     const datedTasks = visibleTasks.filter(task => task.startDate && task.endDate);
     const fallbackDate = new Date().toISOString().split('T')[0];
@@ -2079,7 +2082,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const todayPlanGroups: TodayPlanGroup[] = allTemplates.flatMap(template => {
     const templateTasks = template.id === activeTemplateId
       ? tasks
-      : getLocalStorage<Task[] | null>(`gantt_tasks_${template.id}`, null) ?? template.tasks;
+      : taskCollections[template.id] ?? template.tasks;
     const availableTasks = templateTasks.filter(task => !task.archived);
     const items = availableTasks.flatMap(task => {
       const taskItems = task.startDate <= today && task.endDate >= today
@@ -2142,7 +2145,7 @@ function App({ accountEmail, onSignOut }: AppProps) {
   const reminderPlans: ReminderPlanOption[] = allTemplates.map(template => {
     const planTasks = template.id === activeTemplateId
       ? tasks
-      : getLocalStorage<Task[] | null>(`gantt_tasks_${template.id}`, null) ?? template.tasks;
+      : taskCollections[template.id] ?? template.tasks;
     return {
       id: template.id,
       title: getPlanTitle(template),
