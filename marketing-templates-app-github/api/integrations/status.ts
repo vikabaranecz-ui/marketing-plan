@@ -1,4 +1,4 @@
-import { authenticatedUser, adminHeaders, requiredGoogleEnv, sendJson } from '../_lib/integrations';
+import { authenticatedUser, adminHeaders, requiredGoogleEnv, sendJson } from '../_lib/integrations.js';
 
 export default async function handler(request: any, response: any) {
   const user = await authenticatedUser(request);

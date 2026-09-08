@@ -1,4 +1,4 @@
-import { authenticatedUser, requiredGoogleEnv, sendJson, signState } from '../../_lib/integrations';
+import { authenticatedUser, requiredGoogleEnv, sendJson, signState } from '../../_lib/integrations.js';
 
 export default async function handler(request: any, response: any) {
   const missing = requiredGoogleEnv();

@@ -1,4 +1,4 @@
-import { adminHeaders, encryptCredentials, requiredGoogleEnv, sendJson, verifyState } from '../../_lib/integrations';
+import { adminHeaders, encryptCredentials, requiredGoogleEnv, sendJson, verifyState } from '../../_lib/integrations.js';
 
 interface OAuthState { userId: string; clientId: string; expiresAt: number }
 export default async function handler(request: any, response: any) {
